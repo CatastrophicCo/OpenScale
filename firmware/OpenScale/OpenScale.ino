@@ -132,15 +132,85 @@ class SampleRateCallbacks : public BLECharacteristicCallbacks {
 // =============================================================================
 // Calibration Characteristic Callback
 // =============================================================================
+// Special values for BLE calibration control:
+//   0.0  = Start calibration step 1 (tare with no weight)
+//  -1.0  = Complete calibration step 2 (calculate factor from known weight)
+//  > 0   = Directly set calibration factor (legacy behavior)
+// =============================================================================
 class CalibrationCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     uint8_t* data = pCharacteristic->getData();
     size_t len = pCharacteristic->getLength();
     if (data != nullptr && len >= sizeof(float)) {
-      memcpy(&calibrationFactor, data, sizeof(float));
-      scale.set_scale(calibrationFactor);
-      saveCalibration();
-      Serial.printf("Calibration factor set to %.2f\n", calibrationFactor);
+      float value;
+      memcpy(&value, data, sizeof(float));
+
+      if (value == 0.0f) {
+        // Start calibration step 1: tare with no weight
+        Serial.println("BLE Calibration: Starting step 1 (tare)");
+        scale.set_scale(1.0);  // Reset to raw readings
+        scale.tare(20);  // Tare with more readings for accuracy
+        calibrationMode = true;
+        calibrationWaitingForWeight = true;
+
+        // Update display
+        display.clearDisplay();
+        display.setTextSize(1);
+        display.setCursor(0, 0);
+        display.println("CALIBRATION MODE");
+        display.println("");
+        display.printf("Place %.0f lbs", CALIBRATION_WEIGHT_LBS);
+        display.setCursor(0, 24);
+        display.println("Then complete in app");
+        display.display();
+      } else if (value == -1.0f) {
+        // Complete calibration step 2: calculate factor from known weight
+        if (calibrationMode && calibrationWaitingForWeight) {
+          Serial.println("BLE Calibration: Completing step 2");
+          delay(500);  // Let weight settle
+          float rawReading = scale.get_units(20);  // Get average raw reading
+
+          if (rawReading != 0) {
+            calibrationFactor = rawReading / CALIBRATION_WEIGHT_GRAMS;
+            scale.set_scale(calibrationFactor);
+            saveCalibration();
+
+            // Update BLE characteristic with new factor
+            pCalibrationCharacteristic->setValue((uint8_t*)&calibrationFactor, sizeof(float));
+
+            // Show success
+            display.clearDisplay();
+            display.setTextSize(1);
+            display.setCursor(0, 0);
+            display.println("CALIBRATION DONE!");
+            display.println("");
+            display.printf("Factor: %.2f", calibrationFactor);
+            display.display();
+
+            Serial.printf("BLE Calibration complete! Factor: %.2f\n", calibrationFactor);
+            delay(2000);
+          } else {
+            // Error - no reading
+            display.clearDisplay();
+            display.setCursor(0, 8);
+            display.println("ERROR: No reading");
+            display.display();
+            Serial.println("BLE Calibration error: No reading");
+            delay(2000);
+          }
+
+          calibrationMode = false;
+          calibrationWaitingForWeight = false;
+        } else {
+          Serial.println("BLE Calibration: Not in calibration mode");
+        }
+      } else if (value > 0) {
+        // Direct calibration factor set (legacy behavior)
+        calibrationFactor = value;
+        scale.set_scale(calibrationFactor);
+        saveCalibration();
+        Serial.printf("Calibration factor set to %.2f\n", calibrationFactor);
+      }
     }
   }
 

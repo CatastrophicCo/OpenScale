@@ -310,7 +310,7 @@ class OpenScaleBluetoothService extends ChangeNotifier {
     }
   }
 
-  /// Set calibration factor
+  /// Set calibration factor directly (legacy)
   Future<void> setCalibration(double factor) async {
     if (_calibrationChar == null) return;
     try {
@@ -321,6 +321,44 @@ class OpenScaleBluetoothService extends ChangeNotifier {
       notifyListeners();
     } catch (e) {
       debugPrint('Set calibration error: $e');
+    }
+  }
+
+  /// Start calibration process (step 1: tare with no weight)
+  /// Device will tare and wait for known weight to be placed
+  Future<void> startCalibration() async {
+    if (_calibrationChar == null) return;
+    try {
+      final bytes = ByteData(4);
+      bytes.setFloat32(0, 0.0, Endian.little); // 0.0 = start calibration
+      await _calibrationChar!.write(bytes.buffer.asUint8List(), withoutResponse: false);
+      debugPrint('Calibration started - place 10 lbs on scale');
+    } catch (e) {
+      debugPrint('Start calibration error: $e');
+      rethrow;
+    }
+  }
+
+  /// Complete calibration process (step 2: calculate factor from 10 lb weight)
+  /// Call this after placing the known weight on the scale
+  /// Returns the new calibration factor
+  Future<double?> completeCalibration() async {
+    if (_calibrationChar == null) return null;
+    try {
+      final bytes = ByteData(4);
+      bytes.setFloat32(0, -1.0, Endian.little); // -1.0 = complete calibration
+      await _calibrationChar!.write(bytes.buffer.asUint8List(), withoutResponse: false);
+      debugPrint('Calibration completion requested');
+
+      // Wait for device to calculate and save calibration
+      await Future.delayed(const Duration(seconds: 3));
+
+      // Read back the new calibration factor
+      await _readCalibration();
+      return _calibrationFactor;
+    } catch (e) {
+      debugPrint('Complete calibration error: $e');
+      rethrow;
     }
   }
 

@@ -119,12 +119,24 @@
 
                     <!-- Calibration -->
                     <div class="setting-group">
-                        <label class="setting-label">Calibration Factor</label>
-                        <div class="input-group">
-                            <input type="number" id="calibrationInput" class="input" placeholder="420.0" step="0.1">
-                            <button id="setCalibrationBtn" class="btn btn-secondary" disabled>Set</button>
+                        <label class="setting-label">Calibration</label>
+                        <div id="calibrationNormal" class="calibration-controls">
+                            <div class="calibration-status">
+                                <span>Current Factor: </span>
+                                <span id="calibrationFactorDisplay">--</span>
+                            </div>
+                            <button id="startCalibrationBtn" class="btn btn-secondary" disabled>Start Calibration</button>
                         </div>
-                        <p class="setting-description">Adjust this value if readings are inaccurate. Use the calibration sketch to find the correct value.</p>
+                        <div id="calibrationInProgress" class="calibration-controls" style="display: none;">
+                            <div class="calibration-steps">
+                                <p class="calibration-instruction">Place <strong>10 lbs</strong> on the scale, then click Complete.</p>
+                            </div>
+                            <div class="calibration-actions">
+                                <button id="completeCalibrationBtn" class="btn btn-primary">Complete Calibration</button>
+                                <button id="cancelCalibrationBtn" class="btn btn-secondary">Cancel</button>
+                            </div>
+                        </div>
+                        <p class="setting-description">Calibration is saved to the device and persists after disconnect.</p>
                     </div>
 
                     <!-- Device Name -->

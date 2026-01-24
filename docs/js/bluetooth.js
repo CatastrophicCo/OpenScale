@@ -215,7 +215,7 @@ const OpenScaleBLE = {
         }
     },
 
-    // Set calibration factor
+    // Set calibration factor (legacy - direct value set)
     async setCalibration(factor) {
         if (!this.isConnected || !this.characteristics.calibration) {
             throw new Error('Not connected');
@@ -231,6 +231,47 @@ const OpenScaleBLE = {
             }
         } catch (error) {
             console.error('Error setting calibration:', error);
+            throw error;
+        }
+    },
+
+    // Start calibration process (step 1: tare with no weight)
+    // Device will tare and wait for weight to be placed
+    async startCalibration() {
+        if (!this.isConnected || !this.characteristics.calibration) {
+            throw new Error('Not connected');
+        }
+        try {
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setFloat32(0, 0.0, true); // 0.0 = start calibration
+            await this.characteristics.calibration.writeValue(buffer);
+            console.log('Calibration started - place 10 lbs on scale');
+        } catch (error) {
+            console.error('Error starting calibration:', error);
+            throw error;
+        }
+    },
+
+    // Complete calibration process (step 2: calculate factor from known weight)
+    // Call this after placing the 10 lb weight on the scale
+    async completeCalibration() {
+        if (!this.isConnected || !this.characteristics.calibration) {
+            throw new Error('Not connected');
+        }
+        try {
+            const buffer = new ArrayBuffer(4);
+            const view = new DataView(buffer);
+            view.setFloat32(0, -1.0, true); // -1.0 = complete calibration
+            await this.characteristics.calibration.writeValue(buffer);
+            console.log('Calibration completion requested');
+
+            // Read back the new calibration factor after a short delay
+            await new Promise(resolve => setTimeout(resolve, 3000));
+            const newFactor = await this.readCalibration();
+            return newFactor;
+        } catch (error) {
+            console.error('Error completing calibration:', error);
             throw error;
         }
     },

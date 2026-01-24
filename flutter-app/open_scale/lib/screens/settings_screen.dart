@@ -12,20 +12,17 @@ class SettingsScreen extends StatefulWidget {
 
 class _SettingsScreenState extends State<SettingsScreen> {
   final _deviceNameController = TextEditingController();
-  final _calibrationController = TextEditingController();
 
   @override
   void initState() {
     super.initState();
     final bt = context.read<OpenScaleBluetoothService>();
     _deviceNameController.text = bt.customDeviceName;
-    _calibrationController.text = bt.calibrationFactor.toStringAsFixed(1);
   }
 
   @override
   void dispose() {
     _deviceNameController.dispose();
-    _calibrationController.dispose();
     super.dispose();
   }
 
@@ -152,12 +149,23 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     const Divider(height: 1),
                     ListTile(
                       title: const Text('Calibration Factor'),
-                      subtitle: Text(bluetooth.calibrationFactor.toStringAsFixed(1)),
-                      trailing: IconButton(
-                        icon: const Icon(Icons.edit),
-                        onPressed: bluetooth.connectionState == ConnectionState.connected
-                            ? () => _showCalibrationDialog(context, bluetooth)
-                            : null,
+                      subtitle: Text(bluetooth.calibrationFactor.toStringAsFixed(2)),
+                    ),
+                    const Divider(height: 1),
+                    ListTile(
+                      title: const Text('Start Calibration'),
+                      subtitle: const Text('Use 10 lb known weight'),
+                      leading: const Icon(Icons.straighten),
+                      onTap: bluetooth.connectionState == ConnectionState.connected
+                          ? () => _startCalibrationProcess(context, bluetooth)
+                          : null,
+                      enabled: bluetooth.connectionState == ConnectionState.connected,
+                    ),
+                    const Padding(
+                      padding: EdgeInsets.all(16),
+                      child: Text(
+                        'Calibration is saved to the device and persists after disconnect.',
+                        style: TextStyle(color: Colors.grey, fontSize: 12),
                       ),
                     ),
                   ],
@@ -305,49 +313,182 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _showCalibrationDialog(BuildContext context, OpenScaleBluetoothService bluetooth) {
-    _calibrationController.text = bluetooth.calibrationFactor.toStringAsFixed(1);
-
+  void _startCalibrationProcess(BuildContext context, OpenScaleBluetoothService bluetooth) {
     showDialog(
       context: context,
+      barrierDismissible: false,
       builder: (context) {
-        return AlertDialog(
-          title: const Text('Calibration Factor'),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              TextField(
-                controller: _calibrationController,
-                keyboardType: const TextInputType.numberWithOptions(decimal: true),
-                decoration: const InputDecoration(
-                  labelText: 'Calibration Factor',
-                ),
-              ),
-              const SizedBox(height: 8),
-              const Text(
-                'Use the calibration sketch to find the correct value for your load cell.',
-                style: TextStyle(color: Colors.grey, fontSize: 12),
+        return _CalibrationDialog(bluetooth: bluetooth);
+      },
+    );
+  }
+}
+
+/// Calibration dialog with step-by-step process
+class _CalibrationDialog extends StatefulWidget {
+  final OpenScaleBluetoothService bluetooth;
+
+  const _CalibrationDialog({required this.bluetooth});
+
+  @override
+  State<_CalibrationDialog> createState() => _CalibrationDialogState();
+}
+
+class _CalibrationDialogState extends State<_CalibrationDialog> {
+  int _step = 0; // 0 = intro, 1 = waiting for weight, 2 = completing, 3 = done
+  String? _error;
+  double? _newFactor;
+
+  Future<void> _startCalibration() async {
+    setState(() {
+      _step = 1;
+      _error = null;
+    });
+
+    try {
+      await widget.bluetooth.startCalibration();
+    } catch (e) {
+      setState(() {
+        _error = 'Failed to start calibration: $e';
+        _step = 0;
+      });
+    }
+  }
+
+  Future<void> _completeCalibration() async {
+    setState(() {
+      _step = 2;
+      _error = null;
+    });
+
+    try {
+      _newFactor = await widget.bluetooth.completeCalibration();
+      setState(() {
+        _step = 3;
+      });
+    } catch (e) {
+      setState(() {
+        _error = 'Calibration failed: $e';
+        _step = 0;
+      });
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return AlertDialog(
+      title: const Text('Calibration'),
+      content: _buildContent(),
+      actions: _buildActions(),
+    );
+  }
+
+  Widget _buildContent() {
+    switch (_step) {
+      case 0:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.straighten, size: 48, color: Colors.blue),
+            const SizedBox(height: 16),
+            const Text(
+              'Remove all weight from the scale before starting.',
+              textAlign: TextAlign.center,
+            ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
               ),
             ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('Cancel'),
+          ],
+        );
+      case 1:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.fitness_center, size: 48, color: Colors.orange),
+            const SizedBox(height: 16),
+            const Text(
+              'Place exactly 10 lbs on the scale.',
+              textAlign: TextAlign.center,
+              style: TextStyle(fontWeight: FontWeight.bold),
             ),
-            FilledButton(
-              onPressed: () {
-                final value = double.tryParse(_calibrationController.text);
-                if (value != null) {
-                  bluetooth.setCalibration(value);
-                }
-                Navigator.pop(context);
-              },
-              child: const Text('Set'),
+            const SizedBox(height: 8),
+            const Text(
+              'When the weight is stable, tap Complete.',
+              textAlign: TextAlign.center,
             ),
           ],
         );
-      },
-    );
+      case 2:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: const [
+            CircularProgressIndicator(),
+            SizedBox(height: 16),
+            Text('Calibrating...'),
+          ],
+        );
+      case 3:
+        return Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.check_circle, size: 48, color: Colors.green),
+            const SizedBox(height: 16),
+            const Text(
+              'Calibration Complete!',
+              style: TextStyle(fontWeight: FontWeight.bold),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'New factor: ${_newFactor?.toStringAsFixed(2) ?? "saved"}',
+              style: const TextStyle(color: Colors.grey),
+            ),
+          ],
+        );
+      default:
+        return const SizedBox();
+    }
+  }
+
+  List<Widget> _buildActions() {
+    switch (_step) {
+      case 0:
+        return [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _startCalibration,
+            child: const Text('Start'),
+          ),
+        ];
+      case 1:
+        return [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Cancel'),
+          ),
+          FilledButton(
+            onPressed: _completeCalibration,
+            child: const Text('Complete'),
+          ),
+        ];
+      case 2:
+        return [];
+      case 3:
+        return [
+          FilledButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Done'),
+          ),
+        ];
+      default:
+        return [];
+    }
   }
 }

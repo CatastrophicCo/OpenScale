@@ -71,7 +71,7 @@ The firmware and apps communicate via BLE using a custom service. **UUIDs must m
 | Weight | `BEB5483E-36E1-4688-B7F5-EA07361B26A8` | float32 (grams) | Device → App (notify) |
 | Tare | `1C95D5E3-D8F7-413A-BF3D-7A2E5D7BE87E` | any byte | App → Device (write) |
 | Sample Rate | `A8985FAE-51A4-4E28-B0A2-6C1AEEDE3F3D` | uint8 (1-80 Hz) | Bidirectional |
-| Calibration | `D5875408-FA51-4E89-A0F7-3C7E8E8C5E41` | float32 | Bidirectional |
+| Calibration | `D5875408-FA51-4E89-A0F7-3C7E8E8C5E41` | float32 (see below) | Bidirectional |
 | **Device Name** | `8A2C5F47-B91E-4D36-A6C8-9F0E7D3B1C28` | string (max 20) | Bidirectional |
 
 Weight is always transmitted in **grams** over BLE. Apps convert to user's preferred unit (lbs/kg/g). The ESP32 display shows **pounds**.
@@ -92,4 +92,24 @@ The firmware supports persistent device renaming via NVS (Non-Volatile Storage).
 - `firmware/Calibration/Calibration.ino` - Interactive serial tool to find CALIBRATION_FACTOR
 
 ### Calibration
-The load cell requires calibration. Use `firmware/Calibration/Calibration.ino` with Serial Monitor at 115200 baud. Apply known weight and adjust factor until reading matches. Update `CALIBRATION_FACTOR` in `config.h`.
+
+The load cell requires calibration. There are three methods:
+
+**Method 1: Button Sequence (on device)**
+- Press S-S-S-L-S-S-S (short-short-short-long-short-short-short)
+- Remove all weight, press button
+- Place 10 lb known weight, press button
+- Calibration is saved to NVS automatically
+
+**Method 2: BLE Calibration (from app)**
+The calibration characteristic accepts special float32 values:
+| Value | Action |
+|-------|--------|
+| `0.0` | Start calibration step 1 (tare with no weight) |
+| `-1.0` | Complete calibration step 2 (calculate factor from 10 lb weight) |
+| `> 0` | Directly set calibration factor |
+
+**Method 3: Serial Calibration Utility**
+Use `firmware/Calibration/Calibration.ino` with Serial Monitor at 115200 baud. Apply known weight and adjust factor with +/- keys until reading matches. Note the value and update `CALIBRATION_FACTOR` in `config.h`, or set via BLE.
+
+All calibration methods save to NVS and persist after power cycles.

@@ -156,28 +156,72 @@ OpenScale/
 
 ### 2. Mobile App Setup (Flutter)
 
+For detailed setup instructions, see [user_docs/mobile-app-setup.md](user_docs/mobile-app-setup.md).
+
 #### Prerequisites
 - Flutter SDK 3.0 or later
 - For iOS: macOS with Xcode 15+
 - For Android: Android Studio with Android SDK
 
-#### Android Build
+#### Quick Start - Android
 ```bash
+# Navigate to Flutter app directory
 cd flutter-app/open_scale
+
+# Install dependencies
 flutter pub get
-flutter run                    # Run on connected device
-flutter build apk --release    # Build release APK
+
+# Verify setup
+flutter doctor
+
+# List available devices
+flutter devices
+
+# Run on connected Android device
+flutter run
+
+# Build release APK
+flutter build apk --release
+# Output: build/app/outputs/flutter-apk/app-release.apk
+
+# Build split APKs (smaller file sizes)
+flutter build apk --split-per-abi
 ```
 
-#### iOS Build
+#### Quick Start - iOS
+```bash
+# Navigate to Flutter app directory
+cd flutter-app/open_scale
+
+# Install dependencies
+flutter pub get
+
+# Install CocoaPods dependencies
+cd ios && pod install && cd ..
+
+# Open in Xcode to configure signing
+open ios/Runner.xcworkspace
+# In Xcode: Runner > Signing & Capabilities > Select Team
+
+# Run on connected iPhone
+flutter run
+
+# Build release
+flutter build ios --release
+```
+
+#### Testing
 ```bash
 cd flutter-app/open_scale
-flutter pub get
-open ios/Runner.xcworkspace    # Open in Xcode
-# Configure signing in Xcode, then:
-flutter run                    # Run on connected device
-flutter build ios --release    # Build release IPA
+
+# Run all tests
+flutter test
+
+# Run with verbose output
+flutter test --reporter expanded
 ```
+
+**Note:** BLE functionality requires a physical device. Emulators/simulators do not support Bluetooth scanning.
 
 ### 3. Web App
 1. Visit the hosted web app or run locally
@@ -203,8 +247,20 @@ flutter build ios --release    # Build release IPA
 | Weight | `BEB5483E-36E1-4688-B7F5-EA07361B26A8` | Notify, Read | Current weight in grams (float32) |
 | Tare | `1C95D5E3-D8F7-413A-BF3D-7A2E5D7BE87E` | Write | Write any value to tare |
 | Sample Rate | `A8985FAE-51A4-4E28-B0A2-6C1AEEDE3F3D` | Read, Write | Sample rate in Hz (uint8) |
-| Calibration | `D5875408-FA51-4E89-A0F7-3C7E8E8C5E41` | Read, Write | Calibration factor (float32) |
+| Calibration | `D5875408-FA51-4E89-A0F7-3C7E8E8C5E41` | Read, Write | Calibration factor (float32) - see below |
 | Device Name | `8A2C5F47-B91E-4D36-A6C8-9F0E7D3B1C28` | Read, Write | Custom device name (string, max 20 chars) |
+
+### Calibration via BLE
+
+The Calibration characteristic supports special values:
+
+| Value | Action |
+|-------|--------|
+| `0.0` | Start calibration (tares with no weight, prepares for known weight) |
+| `-1.0` | Complete calibration (calculates factor from 10 lb known weight) |
+| `> 0` | Directly set calibration factor (legacy behavior) |
+
+The calibration factor is saved to non-volatile storage and persists after power cycles.
 
 ## Contributing
 

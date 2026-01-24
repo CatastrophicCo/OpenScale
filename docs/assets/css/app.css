@@ -456,6 +456,51 @@ body {
     text-decoration: underline;
 }
 
+/* Calibration Controls */
+.calibration-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.calibration-status {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 0.9rem;
+    color: var(--color-text-muted);
+}
+
+.calibration-status span:last-child {
+    font-weight: 600;
+    color: var(--color-text);
+}
+
+.calibration-steps {
+    background: var(--color-bg-input);
+    border-radius: var(--radius-sm);
+    padding: 16px;
+    text-align: center;
+}
+
+.calibration-instruction {
+    font-size: 0.9rem;
+    color: var(--color-text);
+}
+
+.calibration-instruction strong {
+    color: var(--color-primary);
+}
+
+.calibration-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.calibration-actions .btn {
+    flex: 1;
+}
+
 /* Responsive */
 @media (max-width: 600px) {
     .app-container {

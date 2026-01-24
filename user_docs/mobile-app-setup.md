@@ -106,7 +106,7 @@ flutter build ios --release
 - **Device renaming** - set a custom name for your OpenScale
 - **Sample rate adjustment** (1-80 Hz)
 - **Unit preferences**
-- Calibration controls
+- **Calibration** - guided calibration process using 10 lb known weight (saved to device)
 
 ## Testing
 

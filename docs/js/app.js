@@ -62,8 +62,12 @@ function initApp() {
         // Settings
         sampleRateSlider: document.getElementById('sampleRateSlider'),
         sampleRateValue: document.getElementById('sampleRateValue'),
-        calibrationInput: document.getElementById('calibrationInput'),
-        setCalibrationBtn: document.getElementById('setCalibrationBtn'),
+        calibrationFactorDisplay: document.getElementById('calibrationFactorDisplay'),
+        calibrationNormal: document.getElementById('calibrationNormal'),
+        calibrationInProgress: document.getElementById('calibrationInProgress'),
+        startCalibrationBtn: document.getElementById('startCalibrationBtn'),
+        completeCalibrationBtn: document.getElementById('completeCalibrationBtn'),
+        cancelCalibrationBtn: document.getElementById('cancelCalibrationBtn'),
         deviceNameInput: document.getElementById('deviceNameInput'),
         setDeviceNameBtn: document.getElementById('setDeviceNameBtn')
     };
@@ -153,18 +157,60 @@ function setupEventListeners() {
         }
     });
 
-    // Calibration button
-    elements.setCalibrationBtn.addEventListener('click', async () => {
-        const factor = parseFloat(elements.calibrationInput.value);
-        if (isNaN(factor)) {
-            alert('Please enter a valid calibration factor');
-            return;
-        }
+    // Start Calibration button
+    elements.startCalibrationBtn.addEventListener('click', async () => {
         try {
-            await OpenScaleBLE.setCalibration(factor);
+            // Confirm with user
+            if (!confirm('Remove all weight from the scale before starting calibration.\n\nClick OK when the scale is empty.')) {
+                return;
+            }
+
+            elements.startCalibrationBtn.disabled = true;
+            elements.startCalibrationBtn.textContent = 'Starting...';
+
+            await OpenScaleBLE.startCalibration();
+
+            // Show calibration in progress UI
+            elements.calibrationNormal.style.display = 'none';
+            elements.calibrationInProgress.style.display = 'block';
+
+            elements.startCalibrationBtn.disabled = false;
+            elements.startCalibrationBtn.textContent = 'Start Calibration';
         } catch (error) {
-            console.error('Failed to set calibration:', error);
+            console.error('Failed to start calibration:', error);
+            alert('Failed to start calibration: ' + error.message);
+            elements.startCalibrationBtn.disabled = false;
+            elements.startCalibrationBtn.textContent = 'Start Calibration';
         }
+    });
+
+    // Complete Calibration button
+    elements.completeCalibrationBtn.addEventListener('click', async () => {
+        try {
+            elements.completeCalibrationBtn.disabled = true;
+            elements.completeCalibrationBtn.textContent = 'Calibrating...';
+
+            const newFactor = await OpenScaleBLE.completeCalibration();
+
+            // Show success and return to normal UI
+            alert('Calibration complete!\n\nNew calibration factor: ' + (newFactor ? newFactor.toFixed(2) : 'saved'));
+
+            elements.calibrationInProgress.style.display = 'none';
+            elements.calibrationNormal.style.display = 'block';
+            elements.completeCalibrationBtn.disabled = false;
+            elements.completeCalibrationBtn.textContent = 'Complete Calibration';
+        } catch (error) {
+            console.error('Failed to complete calibration:', error);
+            alert('Failed to complete calibration: ' + error.message);
+            elements.completeCalibrationBtn.disabled = false;
+            elements.completeCalibrationBtn.textContent = 'Complete Calibration';
+        }
+    });
+
+    // Cancel Calibration button
+    elements.cancelCalibrationBtn.addEventListener('click', () => {
+        elements.calibrationInProgress.style.display = 'none';
+        elements.calibrationNormal.style.display = 'block';
     });
 
     // Device name button
@@ -197,9 +243,12 @@ function setupBLECallbacks() {
             elements.connectBtn.style.display = 'none';
             elements.disconnectBtn.style.display = 'inline-block';
             elements.tareBtn.disabled = false;
-            elements.setCalibrationBtn.disabled = false;
+            elements.startCalibrationBtn.disabled = false;
             elements.setDeviceNameBtn.disabled = false;
             elements.sampleRateSlider.disabled = false;
+            // Reset calibration UI to normal state
+            elements.calibrationInProgress.style.display = 'none';
+            elements.calibrationNormal.style.display = 'block';
         } else {
             elements.connectionStatus.textContent = 'Disconnected';
             elements.connectionStatus.className = 'status disconnected';
@@ -209,9 +258,13 @@ function setupBLECallbacks() {
             elements.connectBtn.textContent = 'Connect';
             elements.disconnectBtn.style.display = 'none';
             elements.tareBtn.disabled = true;
-            elements.setCalibrationBtn.disabled = true;
+            elements.startCalibrationBtn.disabled = true;
             elements.setDeviceNameBtn.disabled = true;
             elements.sampleRateSlider.disabled = true;
+            // Reset calibration UI and show factor as unknown
+            elements.calibrationInProgress.style.display = 'none';
+            elements.calibrationNormal.style.display = 'block';
+            elements.calibrationFactorDisplay.textContent = '--';
         }
     };
 
@@ -235,7 +288,7 @@ function setupBLECallbacks() {
 
     OpenScaleBLE.onCalibrationUpdate = (factor) => {
         AppState.calibrationFactor = factor;
-        elements.calibrationInput.value = factor.toFixed(1);
+        elements.calibrationFactorDisplay.textContent = factor.toFixed(2);
     };
 
     OpenScaleBLE.onDeviceNameUpdate = (name) => {
