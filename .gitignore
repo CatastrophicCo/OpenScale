@@ -1,0 +1,32 @@
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+
+# Windows
+Thumbs.db
+ehthumbs.db
+Desktop.ini
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Xcode
+ios-app/LineScale/LineScale.xcodeproj/project.xcworkspace/
+ios-app/LineScale/LineScale.xcodeproj/xcuserdata/
+ios-app/LineScale/DerivedData/
+*.xcuserstate
+
+# Arduino
+firmware/**/build/
+firmware/**/.build/
+
+# Compiled
+*.o
+*.obj
+*.exe
+*.out
+*.app

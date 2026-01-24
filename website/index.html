@@ -1,0 +1,261 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LineScale - Bluetooth Hangboard Training Scale</title>
+    <meta name="description" content="Open-source Bluetooth-enabled force measurement device for climbing and hangboard training. Build your own for under $25.">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Hero Section -->
+    <header class="hero">
+        <nav class="nav">
+            <div class="nav-brand">LineScale</div>
+            <div class="nav-links">
+                <a href="#features">Features</a>
+                <a href="#hardware">Hardware</a>
+                <a href="#app">App</a>
+                <a href="https://github.com/CatastrophicCo/OpenScale" class="btn btn-outline">GitHub</a>
+            </div>
+        </nav>
+
+        <div class="hero-content">
+            <h1>Train Smarter.<br>Climb Harder.</h1>
+            <p class="hero-subtitle">Open-source Bluetooth force measurement for hangboard training. Real-time feedback, session tracking, and progress visualization.</p>
+            <div class="hero-buttons">
+                <a href="https://github.com/CatastrophicCo/OpenScale" class="btn btn-primary">Get Started</a>
+                <a href="#hardware" class="btn btn-secondary">Build Guide</a>
+            </div>
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">&lt;$25</span>
+                    <span class="stat-label">Total Cost</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">80Hz</span>
+                    <span class="stat-label">Sample Rate</span>
+                </div>
+                <div class="stat">
+                    <span class="stat-value">100%</span>
+                    <span class="stat-label">Open Source</span>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="section">
+        <div class="container">
+            <h2 class="section-title">Everything You Need</h2>
+            <p class="section-subtitle">Professional-grade training metrics without the professional price tag.</p>
+
+            <div class="features-grid">
+                <div class="feature-card">
+                    <div class="feature-icon">&#9889;</div>
+                    <h3>Real-Time Feedback</h3>
+                    <p>See your force output instantly on both the device display and your iPhone. Perfect for max hangs and repeaters.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#128200;</div>
+                    <h3>Force Graphing</h3>
+                    <p>Visualize your force curve in real-time. Identify weak points and track improvements over time.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#128241;</div>
+                    <h3>iOS App</h3>
+                    <p>Native SwiftUI app with Bluetooth connectivity. Record sessions, review history, and track your progress.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#128279;</div>
+                    <h3>Multi-Device</h3>
+                    <p>Train with friends! Each LineScale has a unique ID, so multiple devices work simultaneously in the same space.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#9881;</div>
+                    <h3>Configurable</h3>
+                    <p>Adjust sample rate from 1-80Hz. Choose your preferred units (lbs, kg, grams). Calibrate for accuracy.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">&#128421;</div>
+                    <h3>Open Source</h3>
+                    <p>Full source code available. Modify, improve, and share. Built by climbers, for climbers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Hardware Section -->
+    <section id="hardware" class="section section-alt">
+        <div class="container">
+            <h2 class="section-title">Build Your Own</h2>
+            <p class="section-subtitle">Simple components, easy assembly. No soldering required with the right modules.</p>
+
+            <div class="hardware-grid">
+                <div class="hardware-list">
+                    <h3>Components</h3>
+                    <table class="hardware-table">
+                        <thead>
+                            <tr>
+                                <th>Component</th>
+                                <th>Description</th>
+                                <th>Cost</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <tr>
+                                <td>XIAO ESP32C6</td>
+                                <td>Microcontroller with BLE</td>
+                                <td>~$5</td>
+                            </tr>
+                            <tr>
+                                <td>HX711</td>
+                                <td>Load cell amplifier</td>
+                                <td>~$2</td>
+                            </tr>
+                            <tr>
+                                <td>Load Cell</td>
+                                <td>4-pin strain gauge (50-200kg)</td>
+                                <td>~$10</td>
+                            </tr>
+                            <tr>
+                                <td>OLED Display</td>
+                                <td>128x32 I2C mini display</td>
+                                <td>~$3</td>
+                            </tr>
+                            <tr class="total-row">
+                                <td colspan="2"><strong>Total</strong></td>
+                                <td><strong>~$20</strong></td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <div class="wiring-diagram">
+                    <h3>Wiring</h3>
+                    <div class="wiring-box">
+                        <div class="wiring-section">
+                            <h4>HX711 → ESP32C6</h4>
+                            <ul>
+                                <li>VCC → 3.3V</li>
+                                <li>GND → GND</li>
+                                <li>DT → D4</li>
+                                <li>SCK → D5</li>
+                            </ul>
+                        </div>
+                        <div class="wiring-section">
+                            <h4>OLED → ESP32C6</h4>
+                            <ul>
+                                <li>VCC → 3.3V</li>
+                                <li>GND → GND</li>
+                                <li>SCL → D0</li>
+                                <li>SDA → D1</li>
+                            </ul>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- App Section -->
+    <section id="app" class="section">
+        <div class="container">
+            <h2 class="section-title">Powerful iOS App</h2>
+            <p class="section-subtitle">Everything you need to track and improve your finger strength.</p>
+
+            <div class="app-features">
+                <div class="app-feature">
+                    <div class="app-feature-content">
+                        <h3>Real-Time Weight Display</h3>
+                        <p>Large, easy-to-read display showing current force and peak. Switch between pounds, kilograms, or grams with a tap.</p>
+                        <ul class="feature-list">
+                            <li>Instant BLE connection</li>
+                            <li>Peak force tracking</li>
+                            <li>One-tap tare/zero</li>
+                            <li>Session recording</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="app-feature">
+                    <div class="app-feature-content">
+                        <h3>Live Force Graph</h3>
+                        <p>Watch your force curve develop in real-time. Perfect for analyzing hang technique and identifying weak points in your grip.</p>
+                        <ul class="feature-list">
+                            <li>Smooth 10Hz+ updates</li>
+                            <li>Area chart visualization</li>
+                            <li>Zoom and pan history</li>
+                            <li>Export data (coming soon)</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <div class="app-feature">
+                    <div class="app-feature-content">
+                        <h3>Session History</h3>
+                        <p>Review past training sessions with full force graphs. Track your progress over weeks and months of training.</p>
+                        <ul class="feature-list">
+                            <li>Automatic session saving</li>
+                            <li>Peak and average stats</li>
+                            <li>Detailed session replay</li>
+                            <li>Training trends</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section cta-section">
+        <div class="container">
+            <h2>Ready to Level Up Your Training?</h2>
+            <p>Join the open-source climbing training revolution. Build your LineScale today.</p>
+            <div class="cta-buttons">
+                <a href="https://github.com/CatastrophicCo/OpenScale" class="btn btn-primary btn-large">View on GitHub</a>
+                <a href="https://github.com/CatastrophicCo/OpenScale/blob/main/docs/firmware-setup.md" class="btn btn-secondary btn-large">Read the Docs</a>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-content">
+                <div class="footer-brand">
+                    <h3>LineScale</h3>
+                    <p>Open-source hangboard training tool</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Project</h4>
+                    <ul>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale">GitHub</a></li>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale/issues">Issues</a></li>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale/blob/main/LICENSE">License (MIT)</a></li>
+                    </ul>
+                </div>
+                <div class="footer-links">
+                    <h4>Documentation</h4>
+                    <ul>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale/blob/main/docs/firmware-setup.md">Firmware Setup</a></li>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale/blob/main/docs/ios-app-setup.md">iOS App Setup</a></li>
+                        <li><a href="https://github.com/CatastrophicCo/OpenScale/blob/main/README.md">README</a></li>
+                    </ul>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>&copy; 2026 LineScale. Open source under MIT License.</p>
+            </div>
+        </div>
+    </footer>
+</body>
+</html>
