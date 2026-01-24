@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>OpenScale Web App</title>
+    <meta name="description" content="Connect to your OpenScale device via Web Bluetooth. Real-time weight display, live graphing, and device configuration.">
+    <link rel="stylesheet" href="assets/css/app.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+<body>
+    <div class="app-container">
+        <!-- Header -->
+        <header class="app-header">
+            <a href="#" class="app-logo">
+                <svg viewBox="0 0 32 32" fill="none">
+                    <rect x="2" y="8" width="4" height="16" fill="currentColor"/>
+                    <rect x="8" y="4" width="4" height="24" fill="currentColor"/>
+                    <rect x="14" y="12" width="4" height="12" fill="currentColor"/>
+                    <rect x="20" y="6" width="4" height="20" fill="currentColor"/>
+                    <rect x="26" y="10" width="4" height="14" fill="currentColor"/>
+                </svg>
+                <span>OpenScale</span>
+            </a>
+            <div class="header-actions">
+                <a href="index.html" class="home-link">Back to Home</a>
+            </div>
+        </header>
+
+        <!-- Browser Warning -->
+        <div id="browserWarning" class="browser-warning">
+            <h3>Browser Not Supported</h3>
+            <p>Web Bluetooth is not supported in your browser. Please use Chrome, Edge, or Opera on a desktop or Android device.</p>
+        </div>
+
+        <!-- Connection Panel -->
+        <div class="connection-panel">
+            <div class="connection-info">
+                <div class="device-info">
+                    <span class="device-name" id="deviceNameDisplay">--</span>
+                    <span id="connectionStatus" class="status disconnected">Disconnected</span>
+                </div>
+            </div>
+            <div class="connection-actions">
+                <button id="connectBtn" class="btn btn-primary">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M6.5 6.5l11 11L12 23V1l5.5 5.5-11 11"/>
+                    </svg>
+                    Connect
+                </button>
+                <button id="disconnectBtn" class="btn btn-danger" style="display: none;">
+                    Disconnect
+                </button>
+            </div>
+        </div>
+
+        <!-- Main Content -->
+        <div class="main-grid">
+            <!-- Weight Display Card -->
+            <div class="card weight-card">
+                <div class="card-header">
+                    <span class="card-title">Current Weight</span>
+                </div>
+                <div class="weight-display">
+                    <div class="weight-value-container">
+                        <span id="weightValue" class="weight-value">0.0</span>
+                        <span id="weightUnit" class="weight-unit">lbs</span>
+                    </div>
+                    <div class="max-weight">
+                        <span>Peak</span>
+                        <span id="maxWeight" class="max-weight-value">0.0 lbs</span>
+                        <button id="resetMaxBtn" class="btn btn-secondary btn-sm">Reset</button>
+                    </div>
+                </div>
+                <div class="controls">
+                    <button id="tareBtn" class="btn btn-primary" disabled>
+                        <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="12" cy="12" r="10"/>
+                            <path d="M12 6v6l4 2"/>
+                        </svg>
+                        Tare
+                    </button>
+                    <select id="unitSelect" class="unit-select">
+                        <option value="lbs">Pounds (lbs)</option>
+                        <option value="kg">Kilograms (kg)</option>
+                        <option value="grams">Grams (g)</option>
+                    </select>
+                </div>
+            </div>
+
+            <!-- Graph Card -->
+            <div class="card graph-card">
+                <div class="card-header">
+                    <span class="card-title">Force Graph</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="forceChart"></canvas>
+                </div>
+            </div>
+
+            <!-- Settings Card -->
+            <div class="card settings-card">
+                <div class="card-header">
+                    <span class="card-title">Settings</span>
+                </div>
+                <div class="settings-grid">
+                    <!-- Sample Rate -->
+                    <div class="setting-group">
+                        <label class="setting-label">Sample Rate</label>
+                        <div class="slider-container">
+                            <input type="range" id="sampleRateSlider" class="slider" min="1" max="80" value="10" disabled>
+                            <span id="sampleRateValue" class="slider-value">10 Hz</span>
+                        </div>
+                        <p class="setting-description">Higher rates give smoother graphs but use more battery. Recommended: 10-20 Hz.</p>
+                    </div>
+
+                    <!-- Calibration -->
+                    <div class="setting-group">
+                        <label class="setting-label">Calibration Factor</label>
+                        <div class="input-group">
+                            <input type="number" id="calibrationInput" class="input" placeholder="420.0" step="0.1">
+                            <button id="setCalibrationBtn" class="btn btn-secondary" disabled>Set</button>
+                        </div>
+                        <p class="setting-description">Adjust this value if readings are inaccurate. Use the calibration sketch to find the correct value.</p>
+                    </div>
+
+                    <!-- Device Name -->
+                    <div class="setting-group">
+                        <label class="setting-label">Device Name</label>
+                        <div class="input-group">
+                            <input type="text" id="deviceNameInput" class="input" placeholder="OpenScale-XXXX" maxlength="20">
+                            <button id="setDeviceNameBtn" class="btn btn-secondary" disabled>Rename</button>
+                        </div>
+                        <p class="setting-description">Custom name for your device (max 20 characters). Restart device for changes to take effect.</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <footer class="app-footer">
+            <p>OpenScale Web App &middot; <a href="https://github.com/CatastrophicCo/OpenScale">GitHub</a> &middot; MIT License</p>
+        </footer>
+    </div>
+
+    <script src="js/bluetooth.js"></script>
+    <script src="js/app.js"></script>
+</body>
+</html>
