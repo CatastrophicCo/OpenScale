@@ -1,0 +1,442 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>LineScale — Open Source Hangboard Force Meter</title>
+    <meta name="description" content="Build your own Bluetooth force measurement device for climbing training. Real-time feedback, live graphing, under $25.">
+    <link rel="stylesheet" href="assets/css/style.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=JetBrains+Mono:wght@400;500;600&family=Outfit:wght@300;400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <!-- Grain overlay -->
+    <div class="grain"></div>
+
+    <!-- Navigation -->
+    <nav class="nav">
+        <a href="#" class="nav-logo">
+            <svg width="32" height="32" viewBox="0 0 32 32" fill="none">
+                <rect x="2" y="8" width="4" height="16" fill="currentColor"/>
+                <rect x="8" y="4" width="4" height="24" fill="currentColor"/>
+                <rect x="14" y="12" width="4" height="12" fill="currentColor"/>
+                <rect x="20" y="6" width="4" height="20" fill="currentColor"/>
+                <rect x="26" y="10" width="4" height="14" fill="currentColor"/>
+            </svg>
+            <span>LineScale</span>
+        </a>
+        <div class="nav-links">
+            <a href="#features">Features</a>
+            <a href="#build">Build</a>
+            <a href="#app">App</a>
+            <a href="https://github.com/CatastrophicCo/OpenScale" class="nav-github">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                    <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                </svg>
+            </a>
+        </div>
+    </nav>
+
+    <!-- Hero Section -->
+    <header class="hero">
+        <div class="hero-bg">
+            <div class="hero-graph">
+                <svg viewBox="0 0 800 200" preserveAspectRatio="none">
+                    <defs>
+                        <linearGradient id="graphGradient" x1="0%" y1="0%" x2="0%" y2="100%">
+                            <stop offset="0%" style="stop-color:var(--accent);stop-opacity:0.4" />
+                            <stop offset="100%" style="stop-color:var(--accent);stop-opacity:0" />
+                        </linearGradient>
+                    </defs>
+                    <path class="graph-area" d="M0,200 L0,150 Q50,140 100,120 T200,100 T300,80 T400,60 T500,90 T600,70 T700,50 T800,80 L800,200 Z" fill="url(#graphGradient)"/>
+                    <path class="graph-line" d="M0,150 Q50,140 100,120 T200,100 T300,80 T400,60 T500,90 T600,70 T700,50 T800,80" fill="none" stroke="var(--accent)" stroke-width="3"/>
+                </svg>
+            </div>
+        </div>
+
+        <div class="hero-content">
+            <div class="hero-badge">
+                <span class="pulse"></span>
+                Open Source Hardware
+            </div>
+            <h1 class="hero-title">
+                <span class="hero-title-line">Measure</span>
+                <span class="hero-title-line accent">Every</span>
+                <span class="hero-title-line">Newton</span>
+            </h1>
+            <p class="hero-subtitle">DIY Bluetooth force meter for hangboard training.<br>Real-time feedback. Live graphing. <span class="mono">&lt;$25</span> to build.</p>
+
+            <div class="hero-actions">
+                <a href="https://github.com/CatastrophicCo/OpenScale" class="btn btn-primary">
+                    <span>Start Building</span>
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <path d="M5 12h14M12 5l7 7-7 7"/>
+                    </svg>
+                </a>
+                <a href="#build" class="btn btn-ghost">View Components</a>
+            </div>
+
+            <div class="hero-stats">
+                <div class="stat">
+                    <span class="stat-value">80<span class="stat-unit">Hz</span></span>
+                    <span class="stat-label">Sample Rate</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-value">4</span>
+                    <span class="stat-label">Components</span>
+                </div>
+                <div class="stat-divider"></div>
+                <div class="stat">
+                    <span class="stat-value">∞</span>
+                    <span class="stat-label">Possibilities</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="hero-scroll">
+            <span>Scroll</span>
+            <div class="scroll-line"></div>
+        </div>
+    </header>
+
+    <!-- Features Section -->
+    <section id="features" class="section section-features">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Capabilities</span>
+                <h2 class="section-title">Built for<br><span class="accent">Serious Training</span></h2>
+            </div>
+
+            <div class="features-grid">
+                <div class="feature-card feature-large">
+                    <div class="feature-visual">
+                        <div class="live-display">
+                            <span class="display-value" data-value="147.3">147.3</span>
+                            <span class="display-unit">lbs</span>
+                        </div>
+                        <div class="display-peak">Peak: 152.8 lbs</div>
+                    </div>
+                    <div class="feature-content">
+                        <h3>Real-Time Force Display</h3>
+                        <p>Instant feedback on your OLED and phone. Watch every micro-adjustment in your grip.</p>
+                    </div>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M4 36 L12 24 L20 28 L28 16 L36 20 L44 8"/>
+                            <circle cx="12" cy="24" r="3" fill="var(--accent)"/>
+                            <circle cx="28" cy="16" r="3" fill="var(--accent)"/>
+                            <circle cx="44" cy="8" r="3" fill="var(--accent)"/>
+                        </svg>
+                    </div>
+                    <h3>Live Graphing</h3>
+                    <p>Visualize your force curve. Identify weak points. Track improvement.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                            <rect x="8" y="4" width="32" height="40" rx="4"/>
+                            <rect x="12" y="8" width="24" height="14" rx="2" fill="var(--accent)" opacity="0.3"/>
+                            <circle cx="24" cy="34" r="4"/>
+                        </svg>
+                    </div>
+                    <h3>iOS App</h3>
+                    <p>Native SwiftUI. Session recording. Training history. All synced via Bluetooth.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                            <circle cx="16" cy="16" r="8"/>
+                            <circle cx="32" cy="32" r="8"/>
+                            <path d="M22 20 L26 28" stroke-dasharray="2 2"/>
+                        </svg>
+                    </div>
+                    <h3>Multi-Device</h3>
+                    <p>Unique device IDs. Train with friends. No interference.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M24 4 L24 12 M24 36 L24 44 M4 24 L12 24 M36 24 L44 24"/>
+                            <circle cx="24" cy="24" r="12"/>
+                            <circle cx="24" cy="24" r="4" fill="var(--accent)"/>
+                        </svg>
+                    </div>
+                    <h3>Calibration Tools</h3>
+                    <p>Dial in accuracy. Interactive serial calibration. Persistent settings.</p>
+                </div>
+
+                <div class="feature-card">
+                    <div class="feature-icon">
+                        <svg viewBox="0 0 48 48" fill="none" stroke="currentColor" stroke-width="2">
+                            <path d="M8 16 L24 8 L40 16 L40 32 L24 40 L8 32 Z"/>
+                            <path d="M24 8 L24 40 M8 16 L40 32 M40 16 L8 32" opacity="0.3"/>
+                        </svg>
+                    </div>
+                    <h3>100% Open Source</h3>
+                    <p>MIT licensed. Fork it. Mod it. Make it yours. Built by climbers.</p>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Build Section -->
+    <section id="build" class="section section-build">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Hardware</span>
+                <h2 class="section-title">Four Parts.<br><span class="accent">Twenty Bucks.</span></h2>
+            </div>
+
+            <div class="build-layout">
+                <div class="parts-list">
+                    <div class="part-item">
+                        <div class="part-number">01</div>
+                        <div class="part-info">
+                            <h4>XIAO ESP32C6</h4>
+                            <p>Tiny microcontroller with BLE</p>
+                        </div>
+                        <div class="part-price">~$5</div>
+                    </div>
+                    <div class="part-item">
+                        <div class="part-number">02</div>
+                        <div class="part-info">
+                            <h4>HX711 Amplifier</h4>
+                            <p>24-bit ADC for load cells</p>
+                        </div>
+                        <div class="part-price">~$2</div>
+                    </div>
+                    <div class="part-item">
+                        <div class="part-number">03</div>
+                        <div class="part-info">
+                            <h4>Load Cell</h4>
+                            <p>50-200kg strain gauge</p>
+                        </div>
+                        <div class="part-price">~$10</div>
+                    </div>
+                    <div class="part-item">
+                        <div class="part-number">04</div>
+                        <div class="part-info">
+                            <h4>OLED Display</h4>
+                            <p>128×32 I2C mini screen</p>
+                        </div>
+                        <div class="part-price">~$3</div>
+                    </div>
+                    <div class="part-total">
+                        <span>Total</span>
+                        <span class="total-price">~$20</span>
+                    </div>
+                </div>
+
+                <div class="wiring-card">
+                    <h3>Wiring Diagram</h3>
+                    <div class="wiring-visual">
+                        <div class="chip esp32">
+                            <span class="chip-label">ESP32C6</span>
+                            <div class="pins left">
+                                <span>3.3V</span>
+                                <span>GND</span>
+                                <span>D0</span>
+                                <span>D1</span>
+                            </div>
+                            <div class="pins right">
+                                <span>D4</span>
+                                <span>D5</span>
+                                <span>GND</span>
+                                <span>3.3V</span>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="wiring-connections">
+                        <div class="connection-group">
+                            <span class="connection-label">HX711</span>
+                            <div class="connection-list">
+                                <code>VCC → 3.3V</code>
+                                <code>GND → GND</code>
+                                <code>DT → D4</code>
+                                <code>SCK → D5</code>
+                            </div>
+                        </div>
+                        <div class="connection-group">
+                            <span class="connection-label">OLED</span>
+                            <div class="connection-list">
+                                <code>VCC → 3.3V</code>
+                                <code>GND → GND</code>
+                                <code>SCL → D0</code>
+                                <code>SDA → D1</code>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- App Section -->
+    <section id="app" class="section section-app">
+        <div class="container">
+            <div class="section-header">
+                <span class="section-tag">Software</span>
+                <h2 class="section-title">Native iOS.<br><span class="accent">Zero Compromise.</span></h2>
+            </div>
+
+            <div class="app-showcase">
+                <div class="app-features-list">
+                    <div class="app-feature">
+                        <div class="app-feature-marker"></div>
+                        <div class="app-feature-content">
+                            <h4>Real-Time Display</h4>
+                            <p>Large, glanceable weight readout with peak tracking and instant tare.</p>
+                        </div>
+                    </div>
+                    <div class="app-feature">
+                        <div class="app-feature-marker"></div>
+                        <div class="app-feature-content">
+                            <h4>Force Curves</h4>
+                            <p>Swift Charts visualization. Watch your grip strength develop in real-time.</p>
+                        </div>
+                    </div>
+                    <div class="app-feature">
+                        <div class="app-feature-marker"></div>
+                        <div class="app-feature-content">
+                            <h4>Session History</h4>
+                            <p>Automatic recording. Review past sessions. Track long-term progress.</p>
+                        </div>
+                    </div>
+                    <div class="app-feature">
+                        <div class="app-feature-marker"></div>
+                        <div class="app-feature-content">
+                            <h4>Unit Flexibility</h4>
+                            <p>Pounds, kilograms, or grams. Your preference, instantly.</p>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="app-preview">
+                    <div class="phone-frame">
+                        <div class="phone-screen">
+                            <div class="app-mock">
+                                <div class="app-header">
+                                    <span class="status-dot connected"></span>
+                                    <span>LineScale-A1B2</span>
+                                </div>
+                                <div class="app-weight">
+                                    <span class="weight-value">134.7</span>
+                                    <span class="weight-unit">lbs</span>
+                                </div>
+                                <div class="app-peak">Peak: 148.2 lbs</div>
+                                <div class="app-graph">
+                                    <svg viewBox="0 0 200 60" preserveAspectRatio="none">
+                                        <path d="M0,50 Q20,45 40,40 T80,35 T120,25 T160,30 T200,20" fill="none" stroke="var(--accent)" stroke-width="2"/>
+                                    </svg>
+                                </div>
+                                <div class="app-buttons">
+                                    <button class="app-btn">Tare</button>
+                                    <button class="app-btn primary">Record</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- CTA Section -->
+    <section class="section section-cta">
+        <div class="container">
+            <div class="cta-content">
+                <h2>Ready to build?</h2>
+                <p>Grab the code. Order the parts. Start training smarter.</p>
+                <div class="cta-actions">
+                    <a href="https://github.com/CatastrophicCo/OpenScale" class="btn btn-primary btn-large">
+                        <svg width="24" height="24" viewBox="0 0 24 24" fill="currentColor">
+                            <path d="M12 0c-6.626 0-12 5.373-12 12 0 5.302 3.438 9.8 8.207 11.387.599.111.793-.261.793-.577v-2.234c-3.338.726-4.033-1.416-4.033-1.416-.546-1.387-1.333-1.756-1.333-1.756-1.089-.745.083-.729.083-.729 1.205.084 1.839 1.237 1.839 1.237 1.07 1.834 2.807 1.304 3.492.997.107-.775.418-1.305.762-1.604-2.665-.305-5.467-1.334-5.467-5.931 0-1.311.469-2.381 1.236-3.221-.124-.303-.535-1.524.117-3.176 0 0 1.008-.322 3.301 1.23.957-.266 1.983-.399 3.003-.404 1.02.005 2.047.138 3.006.404 2.291-1.552 3.297-1.23 3.297-1.23.653 1.653.242 2.874.118 3.176.77.84 1.235 1.911 1.235 3.221 0 4.609-2.807 5.624-5.479 5.921.43.372.823 1.102.823 2.222v3.293c0 .319.192.694.801.576 4.765-1.589 8.199-6.086 8.199-11.386 0-6.627-5.373-12-12-12z"/>
+                        </svg>
+                        <span>View on GitHub</span>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </section>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <div class="container">
+            <div class="footer-grid">
+                <div class="footer-brand">
+                    <div class="footer-logo">
+                        <svg width="24" height="24" viewBox="0 0 32 32" fill="none">
+                            <rect x="2" y="8" width="4" height="16" fill="currentColor"/>
+                            <rect x="8" y="4" width="4" height="24" fill="currentColor"/>
+                            <rect x="14" y="12" width="4" height="12" fill="currentColor"/>
+                            <rect x="20" y="6" width="4" height="20" fill="currentColor"/>
+                            <rect x="26" y="10" width="4" height="14" fill="currentColor"/>
+                        </svg>
+                        <span>LineScale</span>
+                    </div>
+                    <p>Open source force measurement for climbers.</p>
+                </div>
+                <div class="footer-links">
+                    <h4>Project</h4>
+                    <a href="https://github.com/CatastrophicCo/OpenScale">GitHub</a>
+                    <a href="https://github.com/CatastrophicCo/OpenScale/issues">Issues</a>
+                    <a href="https://github.com/CatastrophicCo/OpenScale/blob/main/LICENSE">License</a>
+                </div>
+                <div class="footer-links">
+                    <h4>Docs</h4>
+                    <a href="https://github.com/CatastrophicCo/OpenScale/blob/main/docs/firmware-setup.md">Firmware</a>
+                    <a href="https://github.com/CatastrophicCo/OpenScale/blob/main/docs/ios-app-setup.md">iOS App</a>
+                    <a href="https://github.com/CatastrophicCo/OpenScale/blob/main/README.md">README</a>
+                </div>
+            </div>
+            <div class="footer-bottom">
+                <p>MIT License · Built by climbers, for climbers</p>
+            </div>
+        </div>
+    </footer>
+
+    <script>
+        // Animate the display value
+        const displayValue = document.querySelector('.display-value');
+        if (displayValue) {
+            setInterval(() => {
+                const base = 147;
+                const variation = (Math.random() - 0.5) * 4;
+                displayValue.textContent = (base + variation).toFixed(1);
+            }, 150);
+        }
+
+        // Animate phone weight
+        const phoneWeight = document.querySelector('.weight-value');
+        if (phoneWeight) {
+            setInterval(() => {
+                const base = 134;
+                const variation = (Math.random() - 0.5) * 3;
+                phoneWeight.textContent = (base + variation).toFixed(1);
+            }, 200);
+        }
+
+        // Scroll reveal
+        const observerOptions = { threshold: 0.1, rootMargin: '0px 0px -50px 0px' };
+        const observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    entry.target.classList.add('visible');
+                }
+            });
+        }, observerOptions);
+
+        document.querySelectorAll('.feature-card, .part-item, .app-feature, .wiring-card').forEach(el => {
+            observer.observe(el);
+        });
+    </script>
+</body>
+</html>
