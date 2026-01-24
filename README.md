@@ -1,6 +1,6 @@
 # OpenScale - Bluetooth Hangboard Training Scale
 
-A Bluetooth-enabled line scale designed for climbing training, specifically for hangboard exercises. The device measures force/weight in real-time and transmits data to iOS, Android, and Web apps for visualization and analysis.
+A Bluetooth-enabled line scale designed for climbing training, specifically for hangboard exercises. The device measures force/weight in real-time and transmits data to mobile and web apps for visualization and analysis.
 
 ## Project Status
 
@@ -11,8 +11,7 @@ A Bluetooth-enabled line scale designed for climbing training, specifically for 
 - [x] ESP32 firmware with BLE connectivity
 - [x] HX711 load cell integration
 - [x] 128x32 OLED display (weight in pounds)
-- [x] iOS app with SwiftUI
-- [x] Android app with Flutter
+- [x] Cross-platform mobile app (Flutter - iOS & Android)
 - [x] Web app with Web Bluetooth API
 - [x] Real-time weight streaming via BLE
 - [x] Live force graphing
@@ -31,6 +30,7 @@ A Bluetooth-enabled line scale designed for climbing training, specifically for 
 | **HX711** | 24-bit ADC for load cell amplification | $2 |
 | **4-Pin Strain Gauge** | Load cell for force measurement (50-200kg) | $5-15 |
 | **128x32 I2C OLED** | Mini display for local readout | $3 |
+| **Tactile Button** | Momentary push button for tare/wake/settings | $0.10 |
 
 **Total estimated cost:** $15-25
 
@@ -52,23 +52,42 @@ A Bluetooth-enabled line scale designed for climbing training, specifically for 
 | SCL | D0 |
 | SDA | D1 |
 
+### Button
+| Button | ESP32C6 Pin |
+|--------|-------------|
+| One side | D2 |
+| Other side | GND |
+
+The button uses the internal pull-up resistor. No external resistor needed.
+
+## Button Functions
+
+| Action | Function |
+|--------|----------|
+| Short press | Tare/zero the scale |
+| Long press (>1s) | Toggle units (lbs ↔ kg) |
+| Long press from sleep | Wake up device |
+| S-S-S-L-S-S-S sequence | Enter calibration mode |
+
+## Power Management
+
+The OpenScale automatically enters ultra-low-power sleep mode after 10 minutes of inactivity:
+- No weight change detected
+- No BLE connection
+- No button presses
+
+To wake the device, perform a long button press (hold for >1 second).
+
 ## Apps
 
-### iOS App (SwiftUI)
-Native iOS app with:
-- Real-time weight display
-- Live force graphing with Swift Charts
-- Session recording and history
-- Device renaming
-- Unit conversion (lbs/kg/g)
-
-### Android App (Flutter)
+### Mobile App (Flutter - iOS & Android)
 Cross-platform Flutter app with:
 - Material Design 3 dark theme
 - BLE connection via flutter_blue_plus
 - Real-time graphing with fl_chart
 - Device renaming
-- Full feature parity with iOS
+- Session recording and history
+- Unit conversion (lbs/kg/g)
 
 ### Web App (Web Bluetooth)
 Browser-based app (Chrome/Edge/Opera) with:
@@ -100,25 +119,25 @@ OpenScale/
 │   │   └── config.h
 │   └── Calibration/
 │       └── Calibration.ino
-├── ios-app/
-│   └── OpenScale/
-│       ├── LineScale.xcodeproj
-│       └── LineScale/
-│           ├── Models/
-│           └── Views/
 ├── flutter-app/
 │   └── open_scale/
 │       ├── pubspec.yaml
+│       ├── android/
+│       ├── ios/
 │       └── lib/
 │           ├── main.dart
 │           ├── models/
 │           ├── services/
 │           ├── screens/
 │           └── widgets/
-└── docs/
-    ├── index.html
-    ├── app.html
-    └── js/
+├── docs/
+│   ├── index.html
+│   ├── app.html
+│   └── js/
+└── user_docs/
+    ├── firmware-setup.md
+    ├── mobile-app-setup.md
+    └── github-pages-setup.md
 ```
 
 ## Getting Started
@@ -131,29 +150,41 @@ OpenScale/
    - Adafruit SSD1306
    - Adafruit GFX Library
 4. Upload `firmware/Calibration/Calibration.ino` first
-5. Calibrate your load cell (see docs/firmware-setup.md)
+5. Calibrate your load cell (see user_docs/firmware-setup.md)
 6. Update `CALIBRATION_FACTOR` in `config.h`
 7. Upload `firmware/OpenScale/OpenScale.ino`
 
-### 2. iOS App Setup
-1. Open `ios-app/OpenScale/LineScale.xcodeproj` in Xcode
-2. Configure signing with your Apple Developer account
-3. Build and deploy to your iPhone
-4. Enable Bluetooth when prompted
+### 2. Mobile App Setup (Flutter)
 
-### 3. Android App Setup
-1. Install Flutter SDK
-2. Navigate to `flutter-app/open_scale`
-3. Run `flutter pub get`
-4. Run `flutter run` with connected device
-5. Grant Bluetooth permissions when prompted
+#### Prerequisites
+- Flutter SDK 3.0 or later
+- For iOS: macOS with Xcode 15+
+- For Android: Android Studio with Android SDK
 
-### 4. Web App
+#### Android Build
+```bash
+cd flutter-app/open_scale
+flutter pub get
+flutter run                    # Run on connected device
+flutter build apk --release    # Build release APK
+```
+
+#### iOS Build
+```bash
+cd flutter-app/open_scale
+flutter pub get
+open ios/Runner.xcworkspace    # Open in Xcode
+# Configure signing in Xcode, then:
+flutter run                    # Run on connected device
+flutter build ios --release    # Build release IPA
+```
+
+### 3. Web App
 1. Visit the hosted web app or run locally
 2. Click "Connect" and select your OpenScale
 3. Requires Chrome, Edge, or Opera browser
 
-### 5. First Use
+### 4. First Use
 1. Power on your OpenScale device
 2. Open any app and scan for devices
 3. Select your OpenScale (e.g., "OpenScale-A1B2")

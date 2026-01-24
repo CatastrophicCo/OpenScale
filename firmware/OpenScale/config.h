@@ -19,6 +19,37 @@
 #define I2C_SDA_PIN     D1    // SDA
 #define I2C_SCL_PIN     D0    // SCL
 
+// Button (active LOW - connect button between pin and GND)
+#define BUTTON_PIN      D2    // Multi-function button
+
+// =============================================================================
+// Button Configuration
+// =============================================================================
+
+#define LONG_PRESS_MS           1000    // Duration for long press (ms)
+#define SHORT_PRESS_MAX_MS      500     // Maximum duration for short press (ms)
+#define DEBOUNCE_MS             50      // Button debounce time (ms)
+#define SEQUENCE_TIMEOUT_MS     3000    // Timeout between button presses in sequence (ms)
+
+// Calibration sequence: short, short, short, long, short, short, short
+// Encoded as: 0=short, 1=long
+#define CALIBRATION_SEQUENCE_LENGTH 7
+const uint8_t CALIBRATION_SEQUENCE[CALIBRATION_SEQUENCE_LENGTH] = {0, 0, 0, 1, 0, 0, 0};
+
+// Known calibration weight in grams (10 lbs = 4535.92 grams)
+#define CALIBRATION_WEIGHT_GRAMS    4535.92f
+#define CALIBRATION_WEIGHT_LBS      10.0f
+
+// =============================================================================
+// Power Management Configuration
+// =============================================================================
+
+#define INACTIVITY_TIMEOUT_MS   600000  // 10 minutes in milliseconds
+#define WAKE_BUTTON_PIN         BUTTON_PIN  // Wake from deep sleep on this pin
+
+// Weight change threshold to reset inactivity timer (grams)
+#define ACTIVITY_THRESHOLD      50.0f
+
 // =============================================================================
 // OLED Display Configuration
 // =============================================================================
@@ -33,7 +64,7 @@
 // =============================================================================
 
 // Calibration factor - MUST BE CALIBRATED FOR YOUR LOAD CELL
-// Use the calibration sketch to determine this value
+// Use the calibration sketch or button sequence to determine this value
 // Positive values = reading increases when weight is applied
 // Negative values = reading decreases when weight is applied
 #define CALIBRATION_FACTOR  420.0f
@@ -75,6 +106,8 @@
 // NVS namespace for persistent storage
 #define NVS_NAMESPACE               "openscale"
 #define NVS_KEY_DEVICE_NAME         "device_name"
+#define NVS_KEY_DISPLAY_UNIT        "display_unit"
+#define NVS_KEY_CALIBRATION         "calibration"
 
 // =============================================================================
 // Sampling Configuration
@@ -94,5 +127,9 @@
 #define GRAMS_TO_KG     0.001f
 #define GRAMS_TO_LBS    0.00220462f
 #define GRAMS_TO_OZ     0.035274f
+
+// Display unit options
+#define UNIT_LBS        0
+#define UNIT_KG         1
 
 #endif // CONFIG_H

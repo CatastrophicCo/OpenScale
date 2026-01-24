@@ -5,10 +5,22 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Project Overview
 
 OpenScale is a Bluetooth-enabled force measurement device for climbing/hangboard training. It consists of:
-- **ESP32 firmware** (Arduino): Reads load cell, displays weight on OLED, streams data via BLE
-- **iOS app** (SwiftUI): Connects via BLE, displays real-time weight, graphs force over time, records sessions
-- **Android app** (Flutter): Cross-platform app with BLE connection, real-time display, graphing
+- **ESP32 firmware** (Arduino): Reads load cell, displays weight on OLED, streams data via BLE, single-button interface
+- **Mobile app** (Flutter): Cross-platform app for iOS and Android with BLE connection, real-time display, graphing
 - **Web app** (Web Bluetooth): Browser-based app for Chrome/Edge/Opera with live display and graphing
+
+### Hardware
+- XIAO ESP32C6, HX711, 4-pin strain gauge, I2C OLED, tactile button
+- Wiring: HX711 (DT→D4, SCK→D5), OLED (SCL→D0, SDA→D1), Button (D2→GND)
+
+### Button Functions
+- **Short press**: Tare the scale
+- **Long press**: Toggle display units (lbs ↔ kg)
+- **Long press from sleep**: Wake device
+- **S-S-S-L-S-S-S sequence**: Enter calibration mode (10 lb weight)
+
+### Power Management
+Device enters deep sleep after 10 minutes of inactivity. Wake with long button press.
 
 ## Build Commands
 
@@ -25,16 +37,7 @@ arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 firmware/OpenScale
 arduino-cli upload -p COM_PORT --fqbn esp32:esp32:XIAO_ESP32C6 firmware/OpenScale
 ```
 
-### iOS App
-```bash
-# Open in Xcode
-open ios-app/OpenScale/LineScale.xcodeproj
-
-# Build from command line
-xcodebuild -project ios-app/OpenScale/LineScale.xcodeproj -scheme LineScale -destination 'platform=iOS,name=iPhone'
-```
-
-### Flutter App (Android)
+### Flutter App (iOS & Android)
 ```bash
 # Navigate to Flutter app directory
 cd flutter-app/open_scale
@@ -45,8 +48,11 @@ flutter pub get
 # Run on connected device
 flutter run
 
-# Build APK
+# Build Android APK
 flutter build apk --release
+
+# Build iOS (requires macOS with Xcode)
+flutter build ios --release
 ```
 
 ### Web App
@@ -79,8 +85,9 @@ The firmware supports persistent device renaming via NVS (Non-Volatile Storage).
 ### Key Files
 - `firmware/OpenScale/config.h` - All hardware pin mappings and BLE UUIDs
 - `firmware/OpenScale/OpenScale.ino` - Main firmware with NVS device naming
-- `ios-app/OpenScale/.../BluetoothManager.swift` - iOS BLE communication
 - `flutter-app/open_scale/lib/services/bluetooth_service.dart` - Flutter BLE service
+- `flutter-app/open_scale/lib/screens/home_screen.dart` - Main app screen
+- `flutter-app/open_scale/lib/screens/settings_screen.dart` - Settings and device config
 - `docs/js/bluetooth.js` - Web Bluetooth API wrapper
 - `firmware/Calibration/Calibration.ino` - Interactive serial tool to find CALIBRATION_FACTOR
 

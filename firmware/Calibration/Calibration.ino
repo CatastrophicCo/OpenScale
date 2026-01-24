@@ -1,5 +1,5 @@
 /*
- * LineScale Calibration Utility
+ * OpenScale Calibration Utility
  *
  * Use this sketch to calibrate your load cell.
  *
@@ -54,7 +54,7 @@ void setup() {
   delay(1000);
 
   Serial.println("\n========================================");
-  Serial.println("LineScale Calibration Utility");
+  Serial.println("OpenScale Calibration Utility");
   Serial.println("========================================\n");
 
   // Initialize I2C and display

@@ -1,11 +1,22 @@
 /*
  * OpenScale - Bluetooth Hangboard Training Scale
  *
- * Hardware: XIAO ESP32C6, HX711, 4-pin strain gauge, I2C OLED
+ * Hardware: XIAO ESP32C6, HX711, 4-pin strain gauge, I2C OLED, Button
  *
  * Pin Connections:
- *   HX711: DT->D4, SCK->D5
- *   OLED:  SCL->D0, SDA->D1
+ *   HX711:  DT->D4, SCK->D5
+ *   OLED:   SCL->D0, SDA->D1
+ *   Button: D2 (to GND)
+ *
+ * Button Functions:
+ *   - Short press: Tare the scale
+ *   - Long press (awake): Toggle units (lbs/kg)
+ *   - Long press (from sleep): Wake up
+ *   - Sequence (S-S-S-L-S-S-S): Enter calibration mode
+ *
+ * Power Management:
+ *   - Enters deep sleep after 10 minutes of inactivity
+ *   - Wake with long button press
  *
  * See config.h for all configurable settings.
  */
@@ -19,6 +30,7 @@
 #include <BLEUtils.h>
 #include <BLE2902.h>
 #include <esp_mac.h>
+#include <esp_sleep.h>
 #include <Preferences.h>
 
 #include "config.h"
@@ -43,6 +55,7 @@ BLECharacteristic* pDeviceNameCharacteristic = nullptr;
 bool deviceConnected = false;
 bool oldDeviceConnected = false;
 float currentWeight = 0.0f;
+float previousWeight = 0.0f;
 float peakWeight = 0.0f;
 float calibrationFactor = CALIBRATION_FACTOR;
 uint8_t sampleRateHz = DEFAULT_SAMPLE_RATE_HZ;
@@ -52,12 +65,30 @@ unsigned long sampleInterval = 1000 / DEFAULT_SAMPLE_RATE_HZ;
 String customDeviceName = "";
 String activeDeviceName = "";
 
+// Display unit (0 = lbs, 1 = kg)
+uint8_t displayUnit = UNIT_LBS;
+
+// Power management
+unsigned long lastActivityTime = 0;
+
+// Button handling
+bool buttonPressed = false;
+unsigned long buttonPressStart = 0;
+unsigned long lastButtonRelease = 0;
+uint8_t buttonSequence[CALIBRATION_SEQUENCE_LENGTH];
+uint8_t sequenceIndex = 0;
+
+// Calibration mode
+bool calibrationMode = false;
+bool calibrationWaitingForWeight = false;
+
 // =============================================================================
 // BLE Server Callbacks
 // =============================================================================
 class ServerCallbacks : public BLEServerCallbacks {
   void onConnect(BLEServer* pServer) {
     deviceConnected = true;
+    lastActivityTime = millis();  // Reset inactivity timer
     Serial.println("Client connected");
   }
 
@@ -73,8 +104,7 @@ class ServerCallbacks : public BLEServerCallbacks {
 class TareCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
     Serial.println("Tare command received");
-    scale.tare(10);  // Average 10 readings for tare
-    peakWeight = 0.0f;  // Reset peak weight
+    performTare();
   }
 };
 
@@ -109,6 +139,7 @@ class CalibrationCallbacks : public BLECharacteristicCallbacks {
     if (data != nullptr && len >= sizeof(float)) {
       memcpy(&calibrationFactor, data, sizeof(float));
       scale.set_scale(calibrationFactor);
+      saveCalibration();
       Serial.printf("Calibration factor set to %.2f\n", calibrationFactor);
     }
   }
@@ -143,6 +174,73 @@ class DeviceNameCallbacks : public BLECharacteristicCallbacks {
 };
 
 // =============================================================================
+// Perform Tare
+// =============================================================================
+void performTare() {
+  scale.tare(10);  // Average 10 readings for tare
+  peakWeight = 0.0f;  // Reset peak weight
+  lastActivityTime = millis();  // Reset inactivity timer
+  Serial.println("Scale tared");
+}
+
+// =============================================================================
+// Save Calibration to NVS
+// =============================================================================
+void saveCalibration() {
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putFloat(NVS_KEY_CALIBRATION, calibrationFactor);
+  preferences.end();
+  Serial.printf("Calibration saved: %.2f\n", calibrationFactor);
+}
+
+// =============================================================================
+// Load Calibration from NVS
+// =============================================================================
+void loadCalibration() {
+  preferences.begin(NVS_NAMESPACE, true);
+  calibrationFactor = preferences.getFloat(NVS_KEY_CALIBRATION, CALIBRATION_FACTOR);
+  preferences.end();
+  Serial.printf("Loaded calibration: %.2f\n", calibrationFactor);
+}
+
+// =============================================================================
+// Save Display Unit to NVS
+// =============================================================================
+void saveDisplayUnit() {
+  preferences.begin(NVS_NAMESPACE, false);
+  preferences.putUChar(NVS_KEY_DISPLAY_UNIT, displayUnit);
+  preferences.end();
+  Serial.printf("Display unit saved: %s\n", displayUnit == UNIT_LBS ? "lbs" : "kg");
+}
+
+// =============================================================================
+// Load Display Unit from NVS
+// =============================================================================
+void loadDisplayUnit() {
+  preferences.begin(NVS_NAMESPACE, true);
+  displayUnit = preferences.getUChar(NVS_KEY_DISPLAY_UNIT, UNIT_LBS);
+  preferences.end();
+  Serial.printf("Loaded display unit: %s\n", displayUnit == UNIT_LBS ? "lbs" : "kg");
+}
+
+// =============================================================================
+// Toggle Display Unit
+// =============================================================================
+void toggleDisplayUnit() {
+  displayUnit = (displayUnit == UNIT_LBS) ? UNIT_KG : UNIT_LBS;
+  saveDisplayUnit();
+  lastActivityTime = millis();  // Reset inactivity timer
+
+  // Show feedback on display
+  display.clearDisplay();
+  display.setTextSize(2);
+  display.setCursor(20, 8);
+  display.print(displayUnit == UNIT_LBS ? "LBS" : "KG");
+  display.display();
+  delay(500);
+}
+
+// =============================================================================
 // Initialize Display
 // =============================================================================
 void initDisplay() {
@@ -150,7 +248,6 @@ void initDisplay() {
 
   if (!display.begin(SSD1306_SWITCHCAPVCC, OLED_ADDRESS)) {
     Serial.println("SSD1306 allocation failed!");
-    // Continue anyway - device works without display
     return;
   }
 
@@ -191,6 +288,14 @@ void initScale() {
   scale.tare(10);  // Average 10 readings for tare
 
   Serial.println("Scale initialized and tared");
+}
+
+// =============================================================================
+// Initialize Button
+// =============================================================================
+void initButton() {
+  pinMode(BUTTON_PIN, INPUT_PULLUP);
+  Serial.println("Button initialized on pin D2");
 }
 
 // =============================================================================
@@ -283,7 +388,7 @@ void initBLE() {
   BLEAdvertising* pAdvertising = BLEDevice::getAdvertising();
   pAdvertising->addServiceUUID(SERVICE_UUID);
   pAdvertising->setScanResponse(true);
-  pAdvertising->setMinPreferred(0x06);  // For iPhone connection
+  pAdvertising->setMinPreferred(0x06);
   pAdvertising->setMinPreferred(0x12);
   BLEDevice::startAdvertising();
 
@@ -291,24 +396,34 @@ void initBLE() {
 }
 
 // =============================================================================
-// Update Display (128x32 OLED - Weight in Pounds)
+// Update Display
 // =============================================================================
 void updateDisplay() {
   display.clearDisplay();
 
-  // Convert weight to pounds
-  float weightLbs = currentWeight * GRAMS_TO_LBS;
-  float peakLbs = peakWeight * GRAMS_TO_LBS;
+  // Convert weight based on current unit
+  float displayWeight, displayPeak;
+  const char* unitStr;
+
+  if (displayUnit == UNIT_LBS) {
+    displayWeight = currentWeight * GRAMS_TO_LBS;
+    displayPeak = peakWeight * GRAMS_TO_LBS;
+    unitStr = "lbs";
+  } else {
+    displayWeight = currentWeight * GRAMS_TO_KG;
+    displayPeak = peakWeight * GRAMS_TO_KG;
+    unitStr = "kg";
+  }
 
   // Current weight - large text (top portion)
   display.setTextSize(2);
   display.setCursor(0, 0);
-  display.printf("%6.1f", weightLbs);
+  display.printf("%6.1f", displayWeight);
 
   // Units label
   display.setTextSize(1);
   display.setCursor(85, 4);
-  display.print("lbs");
+  display.print(unitStr);
 
   // Connection status indicator
   display.setCursor(SCREEN_WIDTH - 12, 0);
@@ -320,9 +435,220 @@ void updateDisplay() {
 
   // Bottom row: Peak weight
   display.setCursor(0, 24);
-  display.printf("Peak: %.1f lbs", peakLbs);
+  display.printf("Peak: %.1f %s", displayPeak, unitStr);
 
   display.display();
+}
+
+// =============================================================================
+// Display Calibration Mode Screen
+// =============================================================================
+void displayCalibrationScreen() {
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(0, 0);
+  display.println("CALIBRATION MODE");
+  display.println("");
+
+  if (calibrationWaitingForWeight) {
+    display.printf("Place %.0f lbs", CALIBRATION_WEIGHT_LBS);
+    display.setCursor(0, 24);
+    display.println("Press btn when ready");
+  } else {
+    display.println("Remove all weight");
+    display.setCursor(0, 24);
+    display.println("Press btn to start");
+  }
+
+  display.display();
+}
+
+// =============================================================================
+// Handle Calibration Mode
+// =============================================================================
+void handleCalibrationMode() {
+  if (!calibrationWaitingForWeight) {
+    // First step: tare with no weight
+    scale.set_scale(1.0);  // Reset to raw readings
+    scale.tare(20);  // Tare with more readings for accuracy
+    calibrationWaitingForWeight = true;
+    Serial.println("Calibration: Scale tared, waiting for weight...");
+  } else {
+    // Second step: apply known weight and calculate factor
+    delay(500);  // Let weight settle
+    float rawReading = scale.get_units(20);  // Get average raw reading
+
+    if (rawReading != 0) {
+      calibrationFactor = rawReading / CALIBRATION_WEIGHT_GRAMS;
+      scale.set_scale(calibrationFactor);
+      saveCalibration();
+
+      // Show success
+      display.clearDisplay();
+      display.setTextSize(1);
+      display.setCursor(0, 0);
+      display.println("CALIBRATION DONE!");
+      display.println("");
+      display.printf("Factor: %.2f", calibrationFactor);
+      display.display();
+
+      Serial.printf("Calibration complete! Factor: %.2f\n", calibrationFactor);
+      delay(2000);
+    } else {
+      // Error - no reading
+      display.clearDisplay();
+      display.setCursor(0, 8);
+      display.println("ERROR: No reading");
+      display.display();
+      delay(2000);
+    }
+
+    // Exit calibration mode
+    calibrationMode = false;
+    calibrationWaitingForWeight = false;
+  }
+}
+
+// =============================================================================
+// Check Calibration Sequence
+// =============================================================================
+bool checkCalibrationSequence() {
+  if (sequenceIndex < CALIBRATION_SEQUENCE_LENGTH) {
+    return false;
+  }
+
+  for (int i = 0; i < CALIBRATION_SEQUENCE_LENGTH; i++) {
+    if (buttonSequence[i] != CALIBRATION_SEQUENCE[i]) {
+      return false;
+    }
+  }
+
+  return true;
+}
+
+// =============================================================================
+// Handle Button Press
+// =============================================================================
+void handleButton() {
+  bool currentState = digitalRead(BUTTON_PIN) == LOW;  // Active LOW
+  unsigned long currentTime = millis();
+
+  // Debounce
+  static unsigned long lastStateChange = 0;
+  static bool lastState = false;
+
+  if (currentState != lastState) {
+    if (currentTime - lastStateChange > DEBOUNCE_MS) {
+      lastStateChange = currentTime;
+      lastState = currentState;
+
+      if (currentState) {
+        // Button pressed
+        buttonPressed = true;
+        buttonPressStart = currentTime;
+      } else {
+        // Button released
+        if (buttonPressed) {
+          unsigned long pressDuration = currentTime - buttonPressStart;
+          buttonPressed = false;
+
+          // Check sequence timeout
+          if (currentTime - lastButtonRelease > SEQUENCE_TIMEOUT_MS) {
+            sequenceIndex = 0;  // Reset sequence
+          }
+          lastButtonRelease = currentTime;
+
+          // Determine press type
+          bool isLongPress = pressDuration >= LONG_PRESS_MS;
+          bool isShortPress = pressDuration < SHORT_PRESS_MAX_MS;
+
+          // Handle calibration mode button press
+          if (calibrationMode) {
+            handleCalibrationMode();
+            return;
+          }
+
+          // Add to sequence
+          if (sequenceIndex < CALIBRATION_SEQUENCE_LENGTH) {
+            buttonSequence[sequenceIndex++] = isLongPress ? 1 : 0;
+
+            // Check if calibration sequence is complete
+            if (checkCalibrationSequence()) {
+              Serial.println("Calibration sequence detected!");
+              calibrationMode = true;
+              calibrationWaitingForWeight = false;
+              sequenceIndex = 0;
+              return;
+            }
+          }
+
+          // Normal button actions
+          if (isLongPress) {
+            Serial.println("Long press: Toggle units");
+            toggleDisplayUnit();
+            sequenceIndex = 0;  // Reset sequence after action
+          } else if (isShortPress) {
+            Serial.println("Short press: Tare");
+            performTare();
+          }
+
+          lastActivityTime = currentTime;  // Reset inactivity timer
+        }
+      }
+    }
+  }
+}
+
+// =============================================================================
+// Enter Deep Sleep
+// =============================================================================
+void enterDeepSleep() {
+  Serial.println("Entering deep sleep...");
+
+  // Show sleep message
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(20, 8);
+  display.println("SLEEPING...");
+  display.setCursor(8, 20);
+  display.println("Long press to wake");
+  display.display();
+  delay(1000);
+
+  // Turn off display
+  display.clearDisplay();
+  display.display();
+  display.ssd1306_command(SSD1306_DISPLAYOFF);
+
+  // Configure wake-up source (button press)
+  // On ESP32-C6, we use ext0 wake source
+  esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);  // Wake on LOW
+
+  // Enter deep sleep
+  esp_deep_sleep_start();
+}
+
+// =============================================================================
+// Check for Inactivity
+// =============================================================================
+void checkInactivity() {
+  unsigned long currentTime = millis();
+
+  // Check for weight change activity
+  if (abs(currentWeight - previousWeight) > ACTIVITY_THRESHOLD) {
+    lastActivityTime = currentTime;
+    previousWeight = currentWeight;
+  }
+
+  // Check if connected (activity)
+  if (deviceConnected) {
+    lastActivityTime = currentTime;
+  }
+
+  // Check for inactivity timeout
+  if (currentTime - lastActivityTime >= INACTIVITY_TIMEOUT_MS) {
+    enterDeepSleep();
+  }
 }
 
 // =============================================================================
@@ -348,7 +674,7 @@ float readWeight() {
 // =============================================================================
 void sendWeightBLE() {
   if (deviceConnected && pWeightCharacteristic != nullptr) {
-    // Send weight as float (4 bytes)
+    // Always send weight in grams
     pWeightCharacteristic->setValue((uint8_t*)&currentWeight, sizeof(float));
     pWeightCharacteristic->notify();
   }
@@ -361,10 +687,29 @@ void setup() {
   Serial.begin(115200);
   Serial.println("\n\nOpenScale Starting...");
 
-  // Load custom device name from NVS (before BLE init)
+  // Check wake reason
+  esp_sleep_wakeup_cause_t wakeup_reason = esp_sleep_get_wakeup_cause();
+  if (wakeup_reason == ESP_SLEEP_WAKEUP_EXT0) {
+    Serial.println("Woke up from button press");
+
+    // Wait for button release (long press to wake)
+    pinMode(BUTTON_PIN, INPUT_PULLUP);
+    unsigned long wakeStart = millis();
+    while (digitalRead(BUTTON_PIN) == LOW) {
+      if (millis() - wakeStart > LONG_PRESS_MS) {
+        break;  // Long press confirmed
+      }
+      delay(10);
+    }
+  }
+
+  // Load saved settings from NVS
   loadDeviceName();
+  loadDisplayUnit();
+  loadCalibration();
 
   // Initialize components
+  initButton();
   initDisplay();
   delay(100);
 
@@ -372,6 +717,10 @@ void setup() {
   delay(100);
 
   initBLE();
+
+  // Initialize activity timer
+  lastActivityTime = millis();
+  previousWeight = 0.0f;
 
   // Update display with initial state
   updateDisplay();
@@ -384,6 +733,16 @@ void setup() {
 // =============================================================================
 void loop() {
   unsigned long currentTime = millis();
+
+  // Handle button input
+  handleButton();
+
+  // Handle calibration mode display
+  if (calibrationMode) {
+    displayCalibrationScreen();
+    delay(100);
+    return;
+  }
 
   // Read and process weight at the configured sample rate
   if (currentTime - lastSampleTime >= sampleInterval) {
@@ -399,11 +758,6 @@ void loop() {
 
     // Send via BLE
     sendWeightBLE();
-
-    // Debug output (show both grams and pounds)
-    float lbs = currentWeight * GRAMS_TO_LBS;
-    float peakLbs = peakWeight * GRAMS_TO_LBS;
-    Serial.printf("Weight: %.1f lbs / %.0f g (Peak: %.1f lbs)\n", lbs, currentWeight, peakLbs);
   }
 
   // Update display less frequently to avoid flicker
@@ -412,6 +766,9 @@ void loop() {
     lastDisplayUpdate = currentTime;
     updateDisplay();
   }
+
+  // Check for inactivity (power management)
+  checkInactivity();
 
   // Handle BLE reconnection
   if (!deviceConnected && oldDeviceConnected) {

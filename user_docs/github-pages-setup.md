@@ -1,54 +1,52 @@
-# Deploying LineScale Website to GitHub Pages
+# Deploying OpenScale Website to GitHub Pages
 
-## Option 1: Deploy from `website` folder
+## Deploy from `docs` folder
 
-1. **Push your repository to GitHub**
-   ```bash
-   git init
-   git add .
-   git commit -m "Initial commit"
-   git remote add origin https://github.com/yourusername/LineScale.git
-   git push -u origin main
-   ```
+The website files are located in the `docs/` folder, which is the standard location for GitHub Pages.
 
-2. **Configure GitHub Pages**
-   - Go to your repository on GitHub
-   - Navigate to Settings → Pages
-   - Under "Source", select "Deploy from a branch"
-   - Select `main` branch and `/website` folder
-   - Click Save
+### 1. Push your repository to GitHub
 
-3. **Access your site**
-   - Your site will be available at: `https://yourusername.github.io/LineScale/`
+```bash
+git add .
+git commit -m "Update website"
+git remote add origin https://github.com/yourusername/OpenScale.git
+git push -u origin main
+```
 
-## Option 2: Deploy from `docs` folder
+### 2. Configure GitHub Pages
 
-If you prefer using the `docs` folder (common convention):
+1. Go to your repository on GitHub
+2. Navigate to Settings → Pages
+3. Under "Source", select "Deploy from a branch"
+4. Select `main` branch and `/docs` folder
+5. Click Save
 
-1. **Rename the website folder**
-   ```bash
-   mv website docs-website
-   mkdir docs
-   mv docs-website/* docs/
-   mv docs-website/.nojekyll docs/
-   ```
+### 3. Access your site
 
-2. **Move existing docs**
-   ```bash
-   mkdir docs/documentation
-   mv docs/*.md docs/documentation/
-   ```
+Your site will be available at: `https://yourusername.github.io/OpenScale/`
 
-3. **Configure GitHub Pages**
-   - Select `main` branch and `/docs` folder in GitHub Pages settings
+## Website Structure
+
+```
+docs/
+├── index.html          # Homepage
+├── app.html            # Web Bluetooth app
+├── assets/
+│   └── css/
+│       ├── style.css   # Homepage styles
+│       └── app.css     # Web app styles
+└── js/
+    ├── app.js          # Web app logic
+    └── bluetooth.js    # Web Bluetooth API wrapper
+```
 
 ## Custom Domain (Optional)
 
-To use a custom domain like `linescale.io`:
+To use a custom domain like `openscale.io`:
 
-1. **Create CNAME file** in the website folder:
+1. **Create CNAME file** in the docs folder:
    ```
-   linescale.io
+   openscale.io
    ```
 
 2. **Configure DNS** with your domain provider:
@@ -62,7 +60,7 @@ To use a custom domain like `linescale.io`:
 After making changes to the website files:
 
 ```bash
-git add website/
+git add docs/
 git commit -m "Update website"
 git push
 ```
@@ -73,18 +71,46 @@ GitHub Pages will automatically rebuild and deploy your site.
 
 To test the website locally:
 
-1. **Using Python:**
-   ```bash
-   cd website
-   python -m http.server 8000
-   ```
-   Then open `http://localhost:8000`
+### Using Python
+```bash
+cd docs
+python -m http.server 8000
+```
+Then open `http://localhost:8000`
 
-2. **Using Node.js:**
-   ```bash
-   npx serve website
-   ```
+### Using Node.js
+```bash
+npx serve docs
+```
 
-3. **Using VS Code:**
-   - Install "Live Server" extension
-   - Right-click `index.html` → "Open with Live Server"
+### Using VS Code
+1. Install "Live Server" extension
+2. Right-click `index.html` → "Open with Live Server"
+
+## Web Bluetooth App
+
+The web app (`app.html`) uses the Web Bluetooth API to connect to OpenScale devices.
+
+### Requirements
+- Chrome, Edge, or Opera browser
+- HTTPS connection (or localhost for testing)
+- Bluetooth enabled on your computer/phone
+
+### Testing Locally
+Web Bluetooth works on `localhost` without HTTPS:
+```bash
+cd docs
+python -m http.server 8000
+# Open http://localhost:8000/app.html
+```
+
+### Supported Browsers
+| Browser | Desktop | Mobile |
+|---------|---------|--------|
+| Chrome | Yes | Yes (Android) |
+| Edge | Yes | Yes (Android) |
+| Opera | Yes | Yes (Android) |
+| Safari | No | No |
+| Firefox | No | No |
+
+Note: iOS does not support Web Bluetooth in any browser.

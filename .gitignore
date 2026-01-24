@@ -14,11 +14,21 @@ Desktop.ini
 *.swp
 *.swo
 
+# Flutter
+flutter-app/open_scale/.dart_tool/
+flutter-app/open_scale/.packages
+flutter-app/open_scale/.pub/
+flutter-app/open_scale/build/
+flutter-app/open_scale/ios/Pods/
+flutter-app/open_scale/ios/.symlinks/
+flutter-app/open_scale/android/.gradle/
+flutter-app/open_scale/android/app/build/
+*.iml
+
 # Xcode
-ios-app/LineScale/LineScale.xcodeproj/project.xcworkspace/
-ios-app/LineScale/LineScale.xcodeproj/xcuserdata/
-ios-app/LineScale/DerivedData/
 *.xcuserstate
+xcuserdata/
+DerivedData/
 
 # Arduino
 firmware/**/build/

@@ -1,4 +1,4 @@
-# LineScale Firmware Setup Guide
+# OpenScale Firmware Setup Guide
 
 ## Prerequisites
 
@@ -42,7 +42,7 @@ The ESP32 BLE libraries are included with the ESP32 board package.
    GND ─┤         ├─ 3V3
    D10 ─┤  XIAO   ├─ D0 (SCL) ← OLED
     D9 ─┤ ESP32C6 ├─ D1 (SDA) ← OLED
-    D8 ─┤         ├─ D2
+    D8 ─┤         ├─ D2 (BTN) ← Button
     D7 ─┤         ├─ D3
     D6 ─┤         ├─ D4 (DT)  ← HX711
    RST ─┤         ├─ D5 (SCK) ← HX711
@@ -78,19 +78,48 @@ Note: Wire colors may vary. Check your load cell datasheet.
 | SCL | D0 |
 | SDA | D1 |
 
+### Button Wiring
+
+| Button | ESP32C6 Pin |
+|--------|-------------|
+| One terminal | D2 |
+| Other terminal | GND |
+
+Use a simple momentary tactile button. The internal pull-up resistor is enabled, so no external resistor is needed.
+
+## Button Functions
+
+| Action | Function |
+|--------|----------|
+| Short press (<0.5s) | Tare/zero the scale |
+| Long press (>1s) | Toggle display units (lbs ↔ kg) |
+| Long press from sleep | Wake device |
+| S-S-S-L-S-S-S | Enter calibration mode |
+
+**Calibration Sequence**: Press short-short-short-LONG-short-short-short to enter calibration mode. Follow the on-screen prompts to calibrate with a 10 lb weight.
+
+## Power Management
+
+OpenScale includes automatic power management:
+- **Sleep**: Device enters deep sleep after 10 minutes of inactivity
+- **Wake**: Long-press the button to wake from sleep
+- **Activity detection**: Weight changes, BLE connections, and button presses reset the timer
+
+In deep sleep mode, power consumption drops to ~10µA.
+
 ## Uploading Firmware
 
 1. Connect your XIAO ESP32C6 via USB-C
 2. Select the correct COM port in Tools → Port
-3. Open `firmware/LineScale/LineScale.ino`
+3. Open `firmware/OpenScale/OpenScale.ino`
 4. Click Upload (→ button)
 
 ### First Boot
 
 On first boot, the device will:
-1. Initialize the display (shows "LineScale Initializing...")
+1. Initialize the display (shows "OpenScale Initializing...")
 2. Initialize the HX711 and perform an auto-tare
-3. Start BLE advertising
+3. Start BLE advertising as "OpenScale-XXXX" (where XXXX is from MAC address)
 
 ## Calibration
 
@@ -106,7 +135,7 @@ On first boot, the device will:
 6. Use '+' and '-' to adjust until the reading matches
 7. Press 'c' to print the calibration factor
 8. Update `CALIBRATION_FACTOR` in `config.h`
-9. Upload the main `LineScale.ino` sketch
+9. Upload the main `OpenScale.ino` sketch
 
 ### Calibration Tips
 
@@ -114,6 +143,15 @@ On first boot, the device will:
 - Calibrate in the weight range you'll be using
 - The calibration factor can be positive or negative
 - Temperature affects load cell readings slightly
+
+## Device Naming
+
+OpenScale supports custom device naming via NVS (Non-Volatile Storage):
+
+- Default name: `OpenScale-XXXX` (derived from MAC address)
+- Custom names persist across power cycles
+- Set via any app's settings screen
+- Maximum 20 characters
 
 ## Troubleshooting
 
@@ -138,9 +176,10 @@ On first boot, the device will:
 
 ### BLE Not Connecting
 
-- Ensure iPhone Bluetooth is enabled
+- Ensure device Bluetooth is enabled
 - Reset ESP32 and try again
 - Check that device is advertising (Serial Monitor shows status)
+- On Android: Grant location permission for BLE scanning
 
 ## Power Consumption
 
