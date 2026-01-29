@@ -93,7 +93,7 @@ The firmware supports persistent device renaming via NVS (Non-Volatile Storage).
 
 ### Calibration
 
-The load cell requires calibration. There are three methods:
+The load cell requires calibration. There are multiple methods:
 
 **Method 1: Button Sequence (on device)**
 - Press S-S-S-L-S-S-S (short-short-short-long-short-short-short)
@@ -101,15 +101,42 @@ The load cell requires calibration. There are three methods:
 - Place 10 lb known weight, press button
 - Calibration is saved to NVS automatically
 
-**Method 2: BLE Calibration (from app)**
-The calibration characteristic accepts special float32 values:
-| Value | Action |
-|-------|--------|
-| `0.0` | Start calibration step 1 (tare with no weight) |
-| `-1.0` | Complete calibration step 2 (calculate factor from 10 lb weight) |
-| `> 0` | Directly set calibration factor |
+**Method 2: Auto Calibration (from app - custom weight)**
+Both web and Flutter apps support auto calibration with any known weight:
+1. Enter your known weight value and unit (lbs or kg)
+2. Start calibration (scale tares with no weight)
+3. Place your known weight on the scale
+4. Complete calibration - the app calculates the factor using your custom weight
 
-**Method 3: Serial Calibration Utility**
+The apps send `0.0` to start calibration, then calculate the factor locally using the raw reading and user's weight, then send the factor directly to the device.
+
+**Method 3: Manual Calibration Factor (from app)**
+Both apps allow directly setting a known calibration factor:
+- Web: Use the "Manual" tab in calibration settings
+- Flutter: Tap the edit icon next to "Current Calibration Factor"
+
+**Method 4: Serial Calibration Utility**
 Use `firmware/Calibration/Calibration.ino` with Serial Monitor at 115200 baud. Apply known weight and adjust factor with +/- keys until reading matches. Note the value and update `CALIBRATION_FACTOR` in `config.h`, or set via BLE.
 
+**BLE Calibration Protocol:**
+| Value | Action |
+|-------|--------|
+| `0.0` | Start calibration step 1 (tare with no weight, set scale to 1.0) |
+| `-1.0` | Complete calibration step 2 (legacy: calculate factor from 10 lb weight) |
+| `> 0` | Directly set calibration factor |
+
 All calibration methods save to NVS and persist after power cycles.
+
+### Force Graph
+
+Both web and Flutter apps include a force graph with time range controls:
+- **All Time**: Shows entire session since connecting
+- **Recent**: Last 30 sec, 1 min, 5 min (default), or 10 min
+- **Custom Range**: Enter start/end times in seconds since connection
+
+The web app additionally supports:
+- Drag-to-zoom on the chart
+- Mouse wheel zoom
+- Double-click to reset zoom
+
+Data is stored for up to 1 hour at the configured sample rate.

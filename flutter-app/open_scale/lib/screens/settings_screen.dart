@@ -148,13 +148,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text('Calibration Factor'),
+                      title: const Text('Current Calibration Factor'),
                       subtitle: Text(bluetooth.calibrationFactor.toStringAsFixed(2)),
+                      trailing: IconButton(
+                        icon: const Icon(Icons.edit),
+                        onPressed: bluetooth.connectionState == ConnectionState.connected
+                            ? () => _showManualCalibrationDialog(context, bluetooth)
+                            : null,
+                      ),
                     ),
                     const Divider(height: 1),
                     ListTile(
-                      title: const Text('Start Calibration'),
-                      subtitle: const Text('Use 10 lb known weight'),
+                      title: const Text('Auto Calibration'),
+                      subtitle: const Text('Use a known weight'),
                       leading: const Icon(Icons.straighten),
                       onTap: bluetooth.connectionState == ConnectionState.connected
                           ? () => _startCalibrationProcess(context, bluetooth)
@@ -322,9 +328,65 @@ class _SettingsScreenState extends State<SettingsScreen> {
       },
     );
   }
+
+  void _showManualCalibrationDialog(BuildContext context, OpenScaleBluetoothService bluetooth) {
+    final controller = TextEditingController(text: bluetooth.calibrationFactor.toStringAsFixed(2));
+
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('Set Calibration Factor'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              TextField(
+                controller: controller,
+                keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                decoration: const InputDecoration(
+                  labelText: 'Calibration Factor',
+                  hintText: 'e.g., 420.00',
+                ),
+              ),
+              const SizedBox(height: 16),
+              const Text(
+                'Enter a known calibration factor to apply directly to the device.',
+                style: TextStyle(color: Colors.grey, fontSize: 12),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('Cancel'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                final factor = double.tryParse(controller.text);
+                if (factor != null && factor > 0) {
+                  await bluetooth.setCalibration(factor);
+                  if (context.mounted) {
+                    Navigator.pop(context);
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      SnackBar(content: Text('Calibration factor set to ${factor.toStringAsFixed(2)}')),
+                    );
+                  }
+                } else {
+                  ScaffoldMessenger.of(context).showSnackBar(
+                    const SnackBar(content: Text('Please enter a valid factor greater than 0')),
+                  );
+                }
+              },
+              child: const Text('Set'),
+            ),
+          ],
+        );
+      },
+    );
+  }
 }
 
-/// Calibration dialog with step-by-step process
+/// Calibration dialog with step-by-step process and custom weight support
 class _CalibrationDialog extends StatefulWidget {
   final OpenScaleBluetoothService bluetooth;
 
@@ -339,7 +401,30 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
   String? _error;
   double? _newFactor;
 
+  // Custom weight support
+  final _weightController = TextEditingController(text: '10');
+  String _weightUnit = 'lbs';
+
+  @override
+  void dispose() {
+    _weightController.dispose();
+    super.dispose();
+  }
+
+  double get _weightInGrams {
+    final value = double.tryParse(_weightController.text) ?? 10.0;
+    return _weightUnit == 'lbs' ? value * 453.592 : value * 1000;
+  }
+
   Future<void> _startCalibration() async {
+    final weight = double.tryParse(_weightController.text);
+    if (weight == null || weight <= 0) {
+      setState(() {
+        _error = 'Please enter a valid weight';
+      });
+      return;
+    }
+
     setState(() {
       _step = 1;
       _error = null;
@@ -362,14 +447,14 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
     });
 
     try {
-      _newFactor = await widget.bluetooth.completeCalibration();
+      _newFactor = await widget.bluetooth.completeCalibrationWithWeight(_weightInGrams);
       setState(() {
         _step = 3;
       });
     } catch (e) {
       setState(() {
         _error = 'Calibration failed: $e';
-        _step = 0;
+        _step = 1;
       });
     }
   }
@@ -392,8 +477,40 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
             const Icon(Icons.straighten, size: 48, color: Colors.blue),
             const SizedBox(height: 16),
             const Text(
+              'Enter your known weight:',
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 12),
+            Row(
+              children: [
+                Expanded(
+                  child: TextField(
+                    controller: _weightController,
+                    keyboardType: const TextInputType.numberWithOptions(decimal: true),
+                    decoration: const InputDecoration(
+                      labelText: 'Weight',
+                      border: OutlineInputBorder(),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 8),
+                DropdownButton<String>(
+                  value: _weightUnit,
+                  items: const [
+                    DropdownMenuItem(value: 'lbs', child: Text('lbs')),
+                    DropdownMenuItem(value: 'kg', child: Text('kg')),
+                  ],
+                  onChanged: (value) {
+                    if (value != null) setState(() => _weightUnit = value);
+                  },
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            const Text(
               'Remove all weight from the scale before starting.',
               textAlign: TextAlign.center,
+              style: TextStyle(color: Colors.grey, fontSize: 12),
             ),
             if (_error != null) ...[
               const SizedBox(height: 16),
@@ -411,22 +528,30 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
           children: [
             const Icon(Icons.fitness_center, size: 48, color: Colors.orange),
             const SizedBox(height: 16),
-            const Text(
-              'Place exactly 10 lbs on the scale.',
+            Text(
+              'Place exactly ${_weightController.text} $_weightUnit on the scale.',
               textAlign: TextAlign.center,
-              style: TextStyle(fontWeight: FontWeight.bold),
+              style: const TextStyle(fontWeight: FontWeight.bold),
             ),
             const SizedBox(height: 8),
             const Text(
               'When the weight is stable, tap Complete.',
               textAlign: TextAlign.center,
             ),
+            if (_error != null) ...[
+              const SizedBox(height: 16),
+              Text(
+                _error!,
+                style: const TextStyle(color: Colors.red),
+                textAlign: TextAlign.center,
+              ),
+            ],
           ],
         );
       case 2:
-        return Column(
+        return const Column(
           mainAxisSize: MainAxisSize.min,
-          children: const [
+          children: [
             CircularProgressIndicator(),
             SizedBox(height: 16),
             Text('Calibrating...'),

@@ -83,6 +83,12 @@ bool calibrationMode = false;
 bool calibrationWaitingForWeight = false;
 
 // =============================================================================
+// Forward Declarations
+// =============================================================================
+void performTare();
+void saveCalibration();
+
+// =============================================================================
 // BLE Server Callbacks
 // =============================================================================
 class ServerCallbacks : public BLEServerCallbacks {
@@ -224,9 +230,9 @@ class CalibrationCallbacks : public BLECharacteristicCallbacks {
 // =============================================================================
 class DeviceNameCallbacks : public BLECharacteristicCallbacks {
   void onWrite(BLECharacteristic* pCharacteristic) {
-    std::string value = pCharacteristic->getValue();
+    String value = pCharacteristic->getValue();
     if (value.length() > 0 && value.length() <= MAX_DEVICE_NAME_LENGTH) {
-      customDeviceName = String(value.c_str());
+      customDeviceName = value;
 
       // Save to NVS
       preferences.begin(NVS_NAMESPACE, false);
@@ -691,8 +697,8 @@ void enterDeepSleep() {
   display.ssd1306_command(SSD1306_DISPLAYOFF);
 
   // Configure wake-up source (button press)
-  // On ESP32-C6, we use ext0 wake source
-  esp_sleep_enable_ext0_wakeup((gpio_num_t)BUTTON_PIN, 0);  // Wake on LOW
+  // ESP32-C6 uses GPIO wakeup (not ext0 which is for original ESP32)
+  esp_deep_sleep_enable_gpio_wakeup(1ULL << BUTTON_PIN, ESP_GPIO_WAKEUP_GPIO_LOW);
 
   // Enter deep sleep
   esp_deep_sleep_start();

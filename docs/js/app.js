@@ -9,8 +9,18 @@ const AppState = {
     calibrationFactor: 420.0,
     deviceName: '',
     weightHistory: [],
-    maxHistoryLength: 300, // 30 seconds at 10Hz
-    chart: null
+    maxHistoryLength: 36000, // Store up to 1 hour at 10Hz (can be more)
+    chart: null,
+    // Calibration state
+    calibrationInProgress: false,
+    calibrationWeightGrams: 4535.92, // Default 10 lbs in grams
+    // Graph time range state
+    timeRangeMode: 'recent', // 'all', 'recent', 'custom'
+    timeRangeSeconds: 300, // Default 5 minutes
+    customRangeStart: null,
+    customRangeEnd: null,
+    isZoomed: false,
+    connectionStartTime: null
 };
 
 // Unit conversion
@@ -58,6 +68,12 @@ function initApp() {
 
         // Graph
         chartCanvas: document.getElementById('forceChart'),
+        timeRangeSelect: document.getElementById('timeRangeSelect'),
+        resetZoomBtn: document.getElementById('resetZoomBtn'),
+        customRangeControls: document.getElementById('customRangeControls'),
+        customRangeStart: document.getElementById('customRangeStart'),
+        customRangeEnd: document.getElementById('customRangeEnd'),
+        applyCustomRangeBtn: document.getElementById('applyCustomRangeBtn'),
 
         // Settings
         sampleRateSlider: document.getElementById('sampleRateSlider'),
@@ -69,7 +85,18 @@ function initApp() {
         completeCalibrationBtn: document.getElementById('completeCalibrationBtn'),
         cancelCalibrationBtn: document.getElementById('cancelCalibrationBtn'),
         deviceNameInput: document.getElementById('deviceNameInput'),
-        setDeviceNameBtn: document.getElementById('setDeviceNameBtn')
+        setDeviceNameBtn: document.getElementById('setDeviceNameBtn'),
+
+        // Calibration tabs and panels
+        autoCalibrationTab: document.getElementById('autoCalibrationTab'),
+        manualCalibrationTab: document.getElementById('manualCalibrationTab'),
+        autoCalibrationPanel: document.getElementById('autoCalibrationPanel'),
+        manualCalibrationPanel: document.getElementById('manualCalibrationPanel'),
+        calibrationWeightInput: document.getElementById('calibrationWeightInput'),
+        calibrationWeightUnit: document.getElementById('calibrationWeightUnit'),
+        calibrationWeightDisplay: document.getElementById('calibrationWeightDisplay'),
+        manualCalibrationInput: document.getElementById('manualCalibrationInput'),
+        setCalibrationBtn: document.getElementById('setCalibrationBtn')
     };
 
     // Check browser support
@@ -157,9 +184,43 @@ function setupEventListeners() {
         }
     });
 
-    // Start Calibration button
+    // Calibration tab switching
+    elements.autoCalibrationTab.addEventListener('click', () => {
+        elements.autoCalibrationTab.classList.add('active');
+        elements.manualCalibrationTab.classList.remove('active');
+        elements.autoCalibrationPanel.style.display = 'block';
+        elements.manualCalibrationPanel.style.display = 'none';
+    });
+
+    elements.manualCalibrationTab.addEventListener('click', () => {
+        elements.manualCalibrationTab.classList.add('active');
+        elements.autoCalibrationTab.classList.remove('active');
+        elements.manualCalibrationPanel.style.display = 'block';
+        elements.autoCalibrationPanel.style.display = 'none';
+    });
+
+    // Start Calibration button (Auto calibration)
     elements.startCalibrationBtn.addEventListener('click', async () => {
         try {
+            // Get the calibration weight from input
+            const weightValue = parseFloat(elements.calibrationWeightInput.value);
+            const weightUnit = elements.calibrationWeightUnit.value;
+
+            if (isNaN(weightValue) || weightValue <= 0) {
+                alert('Please enter a valid weight greater than 0');
+                return;
+            }
+
+            // Convert to grams
+            if (weightUnit === 'lbs') {
+                AppState.calibrationWeightGrams = weightValue * 453.592;
+            } else {
+                AppState.calibrationWeightGrams = weightValue * 1000; // kg to grams
+            }
+
+            // Update the display to show what weight to use
+            elements.calibrationWeightDisplay.textContent = weightValue + ' ' + weightUnit;
+
             // Confirm with user
             if (!confirm('Remove all weight from the scale before starting calibration.\n\nClick OK when the scale is empty.')) {
                 return;
@@ -169,6 +230,7 @@ function setupEventListeners() {
             elements.startCalibrationBtn.textContent = 'Starting...';
 
             await OpenScaleBLE.startCalibration();
+            AppState.calibrationInProgress = true;
 
             // Show calibration in progress UI
             elements.calibrationNormal.style.display = 'none';
@@ -184,16 +246,35 @@ function setupEventListeners() {
         }
     });
 
-    // Complete Calibration button
+    // Complete Calibration button (Auto calibration with custom weight)
     elements.completeCalibrationBtn.addEventListener('click', async () => {
         try {
             elements.completeCalibrationBtn.disabled = true;
             elements.completeCalibrationBtn.textContent = 'Calibrating...';
 
-            const newFactor = await OpenScaleBLE.completeCalibration();
+            // Wait a moment for readings to stabilize
+            await new Promise(resolve => setTimeout(resolve, 500));
+
+            // Get current raw reading (scale is set to 1.0 during calibration)
+            const rawReading = AppState.currentWeight;
+
+            if (rawReading === 0) {
+                alert('Error: No reading from scale. Make sure weight is placed on the scale.');
+                elements.completeCalibrationBtn.disabled = false;
+                elements.completeCalibrationBtn.textContent = 'Complete Calibration';
+                return;
+            }
+
+            // Calculate calibration factor using user's custom weight
+            const newFactor = rawReading / AppState.calibrationWeightGrams;
+
+            // Send the calculated factor to the device
+            await OpenScaleBLE.setCalibration(newFactor);
+
+            AppState.calibrationInProgress = false;
 
             // Show success and return to normal UI
-            alert('Calibration complete!\n\nNew calibration factor: ' + (newFactor ? newFactor.toFixed(2) : 'saved'));
+            alert('Calibration complete!\n\nNew calibration factor: ' + newFactor.toFixed(2));
 
             elements.calibrationInProgress.style.display = 'none';
             elements.calibrationNormal.style.display = 'block';
@@ -208,9 +289,43 @@ function setupEventListeners() {
     });
 
     // Cancel Calibration button
-    elements.cancelCalibrationBtn.addEventListener('click', () => {
+    elements.cancelCalibrationBtn.addEventListener('click', async () => {
+        AppState.calibrationInProgress = false;
         elements.calibrationInProgress.style.display = 'none';
         elements.calibrationNormal.style.display = 'block';
+
+        // Re-read calibration to restore proper scale factor on device
+        if (OpenScaleBLE.isConnected) {
+            await OpenScaleBLE.readCalibration();
+        }
+    });
+
+    // Manual Calibration - Set Factor button
+    elements.setCalibrationBtn.addEventListener('click', async () => {
+        const factor = parseFloat(elements.manualCalibrationInput.value);
+
+        if (isNaN(factor) || factor <= 0) {
+            alert('Please enter a valid calibration factor greater than 0');
+            return;
+        }
+
+        try {
+            elements.setCalibrationBtn.disabled = true;
+            elements.setCalibrationBtn.textContent = 'Setting...';
+
+            await OpenScaleBLE.setCalibration(factor);
+
+            alert('Calibration factor set to ' + factor.toFixed(2));
+
+            elements.setCalibrationBtn.disabled = false;
+            elements.setCalibrationBtn.textContent = 'Set Factor';
+            elements.manualCalibrationInput.value = '';
+        } catch (error) {
+            console.error('Failed to set calibration factor:', error);
+            alert('Failed to set calibration factor: ' + error.message);
+            elements.setCalibrationBtn.disabled = false;
+            elements.setCalibrationBtn.textContent = 'Set Factor';
+        }
     });
 
     // Device name button
@@ -231,6 +346,54 @@ function setupEventListeners() {
             console.error('Failed to set device name:', error);
         }
     });
+
+    // Time range selector
+    elements.timeRangeSelect.addEventListener('change', (e) => {
+        const value = e.target.value;
+
+        if (value === 'all') {
+            AppState.timeRangeMode = 'all';
+            elements.customRangeControls.style.display = 'none';
+        } else if (value === 'custom') {
+            AppState.timeRangeMode = 'custom';
+            elements.customRangeControls.style.display = 'flex';
+            // Pre-fill with current visible range
+            if (AppState.weightHistory.length > 0 && AppState.connectionStartTime) {
+                const totalSeconds = (Date.now() - AppState.connectionStartTime) / 1000;
+                elements.customRangeStart.value = Math.max(0, Math.floor(totalSeconds - 300));
+                elements.customRangeEnd.value = Math.floor(totalSeconds);
+            }
+        } else {
+            AppState.timeRangeMode = 'recent';
+            AppState.timeRangeSeconds = parseInt(value);
+            elements.customRangeControls.style.display = 'none';
+        }
+
+        // Reset zoom when changing mode
+        resetChartZoom();
+        updateChart();
+    });
+
+    // Apply custom range button
+    elements.applyCustomRangeBtn.addEventListener('click', () => {
+        const start = parseFloat(elements.customRangeStart.value) || 0;
+        const end = parseFloat(elements.customRangeEnd.value) || 300;
+
+        if (start >= end) {
+            alert('Start time must be less than end time');
+            return;
+        }
+
+        AppState.customRangeStart = start;
+        AppState.customRangeEnd = end;
+        resetChartZoom();
+        updateChart();
+    });
+
+    // Reset zoom button
+    elements.resetZoomBtn.addEventListener('click', () => {
+        resetChartZoom();
+    });
 }
 
 // Set up BLE callbacks
@@ -244,11 +407,18 @@ function setupBLECallbacks() {
             elements.disconnectBtn.style.display = 'inline-block';
             elements.tareBtn.disabled = false;
             elements.startCalibrationBtn.disabled = false;
+            elements.setCalibrationBtn.disabled = false;
             elements.setDeviceNameBtn.disabled = false;
             elements.sampleRateSlider.disabled = false;
             // Reset calibration UI to normal state
             elements.calibrationInProgress.style.display = 'none';
             elements.calibrationNormal.style.display = 'block';
+            AppState.calibrationInProgress = false;
+            // Reset graph data and start time for new connection
+            AppState.connectionStartTime = Date.now();
+            AppState.weightHistory = [];
+            AppState.isZoomed = false;
+            elements.resetZoomBtn.style.display = 'none';
         } else {
             elements.connectionStatus.textContent = 'Disconnected';
             elements.connectionStatus.className = 'status disconnected';
@@ -259,12 +429,14 @@ function setupBLECallbacks() {
             elements.disconnectBtn.style.display = 'none';
             elements.tareBtn.disabled = true;
             elements.startCalibrationBtn.disabled = true;
+            elements.setCalibrationBtn.disabled = true;
             elements.setDeviceNameBtn.disabled = true;
             elements.sampleRateSlider.disabled = true;
             // Reset calibration UI and show factor as unknown
             elements.calibrationInProgress.style.display = 'none';
             elements.calibrationNormal.style.display = 'block';
             elements.calibrationFactorDisplay.textContent = '--';
+            AppState.calibrationInProgress = false;
         }
     };
 
@@ -282,8 +454,8 @@ function setupBLECallbacks() {
         AppState.sampleRate = rate;
         elements.sampleRateSlider.value = rate;
         elements.sampleRateValue.textContent = rate + ' Hz';
-        // Update max history length based on sample rate
-        AppState.maxHistoryLength = rate * 30; // 30 seconds
+        // Update max history length based on sample rate (store up to 1 hour)
+        AppState.maxHistoryLength = rate * 3600;
     };
 
     OpenScaleBLE.onCalibrationUpdate = (factor) => {
@@ -324,7 +496,7 @@ function addWeightToHistory(weight) {
     updateChart();
 }
 
-// Initialize Chart.js
+// Initialize Chart.js with zoom plugin
 function initChart() {
     const ctx = elements.chartCanvas.getContext('2d');
 
@@ -365,6 +537,31 @@ function initChart() {
                             return unit.format(context.raw) + ' ' + unit.label;
                         }
                     }
+                },
+                zoom: {
+                    pan: {
+                        enabled: true,
+                        mode: 'x'
+                    },
+                    zoom: {
+                        wheel: {
+                            enabled: true
+                        },
+                        pinch: {
+                            enabled: true
+                        },
+                        drag: {
+                            enabled: true,
+                            backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                            borderColor: '#3b82f6',
+                            borderWidth: 1
+                        },
+                        mode: 'x',
+                        onZoomComplete: ({ chart }) => {
+                            AppState.isZoomed = true;
+                            elements.resetZoomBtn.style.display = 'inline-block';
+                        }
+                    }
                 }
             },
             scales: {
@@ -387,14 +584,21 @@ function initChart() {
                     display: true,
                     title: {
                         display: true,
-                        text: 'Force',
+                        text: `Force (${Units[AppState.unit].label})`,
                         color: '#64748b'
                     },
                     ticks: {
                         color: '#64748b',
                         callback: (value) => {
                             const unit = Units[AppState.unit];
-                            return unit.format(value);
+                            // Format based on unit type
+                            if (unit === Units.grams) {
+                                return value.toFixed(0);
+                            } else if (unit === Units.kg) {
+                                return value.toFixed(1);
+                            } else {
+                                return value.toFixed(1);
+                            }
                         }
                     },
                     grid: {
@@ -405,22 +609,74 @@ function initChart() {
             }
         }
     });
+
+    // Double-click to reset zoom
+    elements.chartCanvas.addEventListener('dblclick', () => {
+        resetChartZoom();
+    });
 }
 
 // Update chart with new data
 function updateChart() {
-    if (!AppState.chart || AppState.weightHistory.length === 0) return;
+    if (!AppState.chart) return;
 
     const unit = Units[AppState.unit];
-    const startTime = AppState.weightHistory[0].time;
 
-    // Convert to chart data
-    const labels = AppState.weightHistory.map(d => ((d.time - startTime) / 1000).toFixed(1));
-    const data = AppState.weightHistory.map(d => unit.convert(d.weight));
+    // Update Y-axis title to show current unit
+    AppState.chart.options.scales.y.title.text = `Force (${unit.label})`;
+
+    if (AppState.weightHistory.length === 0) {
+        AppState.chart.data.labels = [];
+        AppState.chart.data.datasets[0].data = [];
+        AppState.chart.update('none');
+        return;
+    }
+
+    // Don't update data while zoomed (preserve zoom view)
+    if (AppState.isZoomed) {
+        AppState.chart.update('none');
+        return;
+    }
+
+    const connectionStart = AppState.connectionStartTime || AppState.weightHistory[0].time;
+    const now = Date.now();
+
+    // Filter data based on time range mode
+    let filteredData = AppState.weightHistory;
+
+    if (AppState.timeRangeMode === 'recent') {
+        const cutoffTime = now - (AppState.timeRangeSeconds * 1000);
+        filteredData = AppState.weightHistory.filter(d => d.time >= cutoffTime);
+    } else if (AppState.timeRangeMode === 'custom' && AppState.customRangeStart !== null && AppState.customRangeEnd !== null) {
+        const startTime = connectionStart + (AppState.customRangeStart * 1000);
+        const endTime = connectionStart + (AppState.customRangeEnd * 1000);
+        filteredData = AppState.weightHistory.filter(d => d.time >= startTime && d.time <= endTime);
+    }
+    // 'all' mode uses all data (no filtering)
+
+    if (filteredData.length === 0) {
+        AppState.chart.data.labels = [];
+        AppState.chart.data.datasets[0].data = [];
+        AppState.chart.update('none');
+        return;
+    }
+
+    // Convert to chart data - time relative to connection start
+    const labels = filteredData.map(d => ((d.time - connectionStart) / 1000).toFixed(1));
+    const data = filteredData.map(d => unit.convert(d.weight));
 
     AppState.chart.data.labels = labels;
     AppState.chart.data.datasets[0].data = data;
     AppState.chart.update('none');
+}
+
+// Reset chart zoom
+function resetChartZoom() {
+    if (AppState.chart) {
+        AppState.chart.resetZoom();
+        AppState.isZoomed = false;
+        elements.resetZoomBtn.style.display = 'none';
+    }
 }
 
 // Load saved preferences

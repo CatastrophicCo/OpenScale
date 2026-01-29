@@ -10,6 +10,8 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/hammerjs@2.0.8"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom@2.0.1"></script>
 </head>
 <body>
     <div class="app-container">
@@ -95,7 +97,32 @@
             <div class="card graph-card">
                 <div class="card-header">
                     <span class="card-title">Force Graph</span>
+                    <div class="graph-controls">
+                        <select id="timeRangeSelect" class="time-range-select">
+                            <option value="all">All Time</option>
+                            <option value="30">Last 30 sec</option>
+                            <option value="60">Last 1 min</option>
+                            <option value="300" selected>Last 5 min</option>
+                            <option value="600">Last 10 min</option>
+                            <option value="custom">Custom Range</option>
+                        </select>
+                        <button id="resetZoomBtn" class="btn btn-secondary btn-sm" style="display: none;">Reset Zoom</button>
+                    </div>
                 </div>
+                <div id="customRangeControls" class="custom-range-controls" style="display: none;">
+                    <div class="range-input-group">
+                        <label>Start:</label>
+                        <input type="number" id="customRangeStart" class="input input-sm" placeholder="0" min="0" step="1">
+                        <span class="range-unit">sec</span>
+                    </div>
+                    <div class="range-input-group">
+                        <label>End:</label>
+                        <input type="number" id="customRangeEnd" class="input input-sm" placeholder="300" min="0" step="1">
+                        <span class="range-unit">sec</span>
+                    </div>
+                    <button id="applyCustomRangeBtn" class="btn btn-primary btn-sm">Apply</button>
+                </div>
+                <p class="graph-hint">Drag on chart to zoom. Double-click to reset.</p>
                 <div class="chart-container">
                     <canvas id="forceChart"></canvas>
                 </div>
@@ -120,22 +147,52 @@
                     <!-- Calibration -->
                     <div class="setting-group">
                         <label class="setting-label">Calibration</label>
-                        <div id="calibrationNormal" class="calibration-controls">
-                            <div class="calibration-status">
-                                <span>Current Factor: </span>
-                                <span id="calibrationFactorDisplay">--</span>
-                            </div>
-                            <button id="startCalibrationBtn" class="btn btn-secondary" disabled>Start Calibration</button>
+                        <div class="calibration-status">
+                            <span>Current Factor: </span>
+                            <span id="calibrationFactorDisplay">--</span>
                         </div>
-                        <div id="calibrationInProgress" class="calibration-controls" style="display: none;">
-                            <div class="calibration-steps">
-                                <p class="calibration-instruction">Place <strong>10 lbs</strong> on the scale, then click Complete.</p>
+
+                        <!-- Calibration Mode Tabs -->
+                        <div class="calibration-tabs">
+                            <button id="autoCalibrationTab" class="tab-btn active">Auto Calibration</button>
+                            <button id="manualCalibrationTab" class="tab-btn">Manual</button>
+                        </div>
+
+                        <!-- Auto Calibration Panel -->
+                        <div id="autoCalibrationPanel" class="calibration-panel">
+                            <div id="calibrationNormal" class="calibration-controls">
+                                <div class="input-group calibration-weight-input">
+                                    <label for="calibrationWeightInput">Known Weight:</label>
+                                    <input type="number" id="calibrationWeightInput" class="input" value="10" min="0.1" step="0.1">
+                                    <select id="calibrationWeightUnit" class="unit-select-small">
+                                        <option value="lbs" selected>lbs</option>
+                                        <option value="kg">kg</option>
+                                    </select>
+                                </div>
+                                <button id="startCalibrationBtn" class="btn btn-secondary" disabled>Start Calibration</button>
                             </div>
-                            <div class="calibration-actions">
-                                <button id="completeCalibrationBtn" class="btn btn-primary">Complete Calibration</button>
-                                <button id="cancelCalibrationBtn" class="btn btn-secondary">Cancel</button>
+                            <div id="calibrationInProgress" class="calibration-controls" style="display: none;">
+                                <div class="calibration-steps">
+                                    <p class="calibration-instruction">Place <strong><span id="calibrationWeightDisplay">10 lbs</span></strong> on the scale, then click Complete.</p>
+                                </div>
+                                <div class="calibration-actions">
+                                    <button id="completeCalibrationBtn" class="btn btn-primary">Complete Calibration</button>
+                                    <button id="cancelCalibrationBtn" class="btn btn-secondary">Cancel</button>
+                                </div>
                             </div>
                         </div>
+
+                        <!-- Manual Calibration Panel -->
+                        <div id="manualCalibrationPanel" class="calibration-panel" style="display: none;">
+                            <div class="calibration-controls">
+                                <div class="input-group">
+                                    <input type="number" id="manualCalibrationInput" class="input" placeholder="Enter calibration factor" step="0.01">
+                                    <button id="setCalibrationBtn" class="btn btn-secondary" disabled>Set Factor</button>
+                                </div>
+                                <p class="setting-hint">Enter a known calibration factor to apply directly.</p>
+                            </div>
+                        </div>
+
                         <p class="setting-description">Calibration is saved to the device and persists after disconnect.</p>
                     </div>
 

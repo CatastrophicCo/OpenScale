@@ -62,7 +62,11 @@ class OpenScaleBluetoothService extends ChangeNotifier {
   // Weight history for graphing
   final List<WeightDataPoint> _weightHistory = [];
   List<WeightDataPoint> get weightHistory => List.unmodifiable(_weightHistory);
-  static const int maxHistoryLength = 300; // 30 seconds at 10Hz
+  static const int maxHistoryLength = 36000; // Store up to 1 hour at 10Hz
+
+  // Connection start time for graph timing
+  DateTime? _connectionStartTime;
+  DateTime? get connectionStartTime => _connectionStartTime;
 
   // Recording state
   bool _isRecording = false;
@@ -190,6 +194,11 @@ class OpenScaleBluetoothService extends ChangeNotifier {
       await _readCalibration();
       await _readDeviceName();
 
+      // Reset state for new connection
+      _connectionStartTime = DateTime.now();
+      _weightHistory.clear();
+      _peakWeight = 0.0;
+
       _connectionState = ConnectionState.connected;
       notifyListeners();
     } catch (e) {
@@ -220,6 +229,7 @@ class OpenScaleBluetoothService extends ChangeNotifier {
     _calibrationChar = null;
     _deviceNameChar = null;
     _customDeviceName = '';
+    _connectionStartTime = null;
     _connectionState = ConnectionState.disconnected;
     notifyListeners();
   }
@@ -339,27 +349,44 @@ class OpenScaleBluetoothService extends ChangeNotifier {
     }
   }
 
-  /// Complete calibration process (step 2: calculate factor from 10 lb weight)
+  /// Complete calibration process with custom weight
   /// Call this after placing the known weight on the scale
+  /// [weightGrams] is the known weight in grams
   /// Returns the new calibration factor
-  Future<double?> completeCalibration() async {
+  Future<double?> completeCalibrationWithWeight(double weightGrams) async {
     if (_calibrationChar == null) return null;
     try {
-      final bytes = ByteData(4);
-      bytes.setFloat32(0, -1.0, Endian.little); // -1.0 = complete calibration
-      await _calibrationChar!.write(bytes.buffer.asUint8List(), withoutResponse: false);
-      debugPrint('Calibration completion requested');
+      // Wait for readings to stabilize
+      await Future.delayed(const Duration(milliseconds: 500));
 
-      // Wait for device to calculate and save calibration
-      await Future.delayed(const Duration(seconds: 3));
+      // Get current raw reading (scale is set to 1.0 during calibration)
+      final rawReading = _currentWeight;
 
-      // Read back the new calibration factor
-      await _readCalibration();
-      return _calibrationFactor;
+      if (rawReading == 0) {
+        throw Exception('No reading from scale');
+      }
+
+      // Calculate calibration factor using user's custom weight
+      final newFactor = rawReading / weightGrams;
+
+      // Send the calculated factor to the device
+      await setCalibration(newFactor);
+
+      debugPrint('Calibration complete with custom weight: factor = $newFactor');
+      return newFactor;
     } catch (e) {
       debugPrint('Complete calibration error: $e');
       rethrow;
     }
+  }
+
+  /// Complete calibration process (step 2: calculate factor from 10 lb weight)
+  /// Call this after placing the known weight on the scale
+  /// Returns the new calibration factor
+  /// @deprecated Use completeCalibrationWithWeight for custom weight support
+  Future<double?> completeCalibration() async {
+    // Default to 10 lbs (4535.92 grams) for backwards compatibility
+    return completeCalibrationWithWeight(4535.92);
   }
 
   /// Read device name

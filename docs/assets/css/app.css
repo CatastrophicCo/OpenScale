@@ -337,6 +337,67 @@ body {
     flex-direction: column;
 }
 
+.graph-controls {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+
+.time-range-select {
+    background: var(--color-bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 6px 12px;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.time-range-select:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+.custom-range-controls {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 12px;
+    background: var(--color-bg-input);
+    border-radius: var(--radius-sm);
+    margin-bottom: 12px;
+    flex-wrap: wrap;
+}
+
+.range-input-group {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.range-input-group label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+}
+
+.range-input-group .input-sm {
+    width: 80px;
+    padding: 8px 12px;
+    font-size: 0.875rem;
+}
+
+.range-unit {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+}
+
+.graph-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-bottom: 8px;
+    text-align: center;
+}
+
 .chart-container {
     flex: 1;
     min-height: 300px;
@@ -499,6 +560,82 @@ body {
 
 .calibration-actions .btn {
     flex: 1;
+}
+
+/* Calibration Tabs */
+.calibration-tabs {
+    display: flex;
+    gap: 4px;
+    background: var(--color-bg-input);
+    border-radius: var(--radius-sm);
+    padding: 4px;
+    margin-bottom: 12px;
+}
+
+.tab-btn {
+    flex: 1;
+    padding: 8px 16px;
+    border: none;
+    background: transparent;
+    color: var(--color-text-muted);
+    font-size: 0.875rem;
+    font-weight: 500;
+    border-radius: 6px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.tab-btn:hover {
+    color: var(--color-text);
+}
+
+.tab-btn.active {
+    background: var(--color-primary);
+    color: white;
+}
+
+.calibration-panel {
+    margin-top: 8px;
+}
+
+/* Calibration Weight Input */
+.calibration-weight-input {
+    align-items: center;
+    margin-bottom: 8px;
+}
+
+.calibration-weight-input label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    white-space: nowrap;
+}
+
+.calibration-weight-input .input {
+    width: 80px;
+    flex: 0 0 auto;
+    text-align: center;
+}
+
+.unit-select-small {
+    background: var(--color-bg-input);
+    color: var(--color-text);
+    border: 1px solid var(--color-border);
+    border-radius: var(--radius-sm);
+    padding: 12px 12px;
+    font-size: 0.875rem;
+    cursor: pointer;
+}
+
+.unit-select-small:focus {
+    outline: none;
+    border-color: var(--color-primary);
+}
+
+/* Setting Hint */
+.setting-hint {
+    font-size: 0.75rem;
+    color: var(--color-text-muted);
+    margin-top: 4px;
 }
 
 /* Responsive */

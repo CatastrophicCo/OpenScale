@@ -80,12 +80,13 @@ class HomeScreen extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        const SizedBox(height: 8),
                         SizedBox(
-                          height: 200,
+                          height: 280,
                           child: ForceChartWidget(
                             weightHistory: bluetooth.weightHistory,
                             unit: bluetooth.unit,
+                            connectionStartTime: bluetooth.connectionStartTime,
                           ),
                         ),
                       ],
