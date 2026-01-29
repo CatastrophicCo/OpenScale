@@ -14,10 +14,11 @@ OpenScale is a Bluetooth-enabled force measurement device for climbing/hangboard
 - Wiring: HX711 (DT→D4, SCK→D5), OLED (SCL→D0, SDA→D1), Button (D2→GND)
 
 ### Button Functions
-- **Short press**: Tare the scale
-- **Long press**: Toggle display units (lbs ↔ kg)
+- **Single press**: Tare the scale (zero the current reading)
+- **Double press**: Reset peak weight display
+- **Long press**: Toggle display units (lbs ↔ kg) - shows preview of new unit while held
 - **Long press from sleep**: Wake device
-- **S-S-S-L-S-S-S sequence**: Enter calibration mode (10 lb weight)
+- **S-S-S-L-S-S-S sequence**: Enter calibration mode
 
 ### Power Management
 Device enters deep sleep after 10 minutes of inactivity. Wake with long button press.

@@ -503,7 +503,6 @@ function initChart() {
     AppState.chart = new Chart(ctx, {
         type: 'line',
         data: {
-            labels: [],
             datasets: [{
                 label: 'Force',
                 data: [],
@@ -522,6 +521,8 @@ function initChart() {
             animation: {
                 duration: 0
             },
+            parsing: false,
+            normalized: true,
             interaction: {
                 intersect: false,
                 mode: 'index'
@@ -534,7 +535,20 @@ function initChart() {
                     callbacks: {
                         label: (context) => {
                             const unit = Units[AppState.unit];
-                            return unit.format(context.raw) + ' ' + unit.label;
+                            const value = context.parsed.y;
+                            if (unit === Units.grams) {
+                                return value.toFixed(0) + ' ' + unit.label;
+                            } else if (unit === Units.kg) {
+                                return value.toFixed(2) + ' ' + unit.label;
+                            } else {
+                                return value.toFixed(1) + ' ' + unit.label;
+                            }
+                        },
+                        title: (context) => {
+                            if (context.length > 0) {
+                                return context[0].parsed.x.toFixed(1) + 's';
+                            }
+                            return '';
                         }
                     }
                 },
@@ -566,6 +580,7 @@ function initChart() {
             },
             scales: {
                 x: {
+                    type: 'linear',
                     display: true,
                     title: {
                         display: true,
@@ -574,24 +589,25 @@ function initChart() {
                     },
                     ticks: {
                         color: '#64748b',
-                        maxTicksLimit: 6
+                        maxTicksLimit: 8,
+                        callback: (value) => value.toFixed(0)
                     },
                     grid: {
                         color: 'rgba(100, 116, 139, 0.1)'
                     }
                 },
                 y: {
+                    type: 'linear',
                     display: true,
                     title: {
                         display: true,
-                        text: `Force (${Units[AppState.unit].label})`,
+                        text: 'Force (lbs)',
                         color: '#64748b'
                     },
                     ticks: {
                         color: '#64748b',
                         callback: (value) => {
                             const unit = Units[AppState.unit];
-                            // Format based on unit type
                             if (unit === Units.grams) {
                                 return value.toFixed(0);
                             } else if (unit === Units.kg) {
@@ -626,7 +642,6 @@ function updateChart() {
     AppState.chart.options.scales.y.title.text = `Force (${unit.label})`;
 
     if (AppState.weightHistory.length === 0) {
-        AppState.chart.data.labels = [];
         AppState.chart.data.datasets[0].data = [];
         AppState.chart.update('none');
         return;
@@ -643,30 +658,43 @@ function updateChart() {
 
     // Filter data based on time range mode
     let filteredData = AppState.weightHistory;
+    let xMin = null;
+    let xMax = null;
 
     if (AppState.timeRangeMode === 'recent') {
         const cutoffTime = now - (AppState.timeRangeSeconds * 1000);
         filteredData = AppState.weightHistory.filter(d => d.time >= cutoffTime);
+        // Set x-axis bounds for recent mode
+        xMin = (cutoffTime - connectionStart) / 1000;
+        xMax = (now - connectionStart) / 1000;
     } else if (AppState.timeRangeMode === 'custom' && AppState.customRangeStart !== null && AppState.customRangeEnd !== null) {
         const startTime = connectionStart + (AppState.customRangeStart * 1000);
         const endTime = connectionStart + (AppState.customRangeEnd * 1000);
         filteredData = AppState.weightHistory.filter(d => d.time >= startTime && d.time <= endTime);
+        // Set x-axis bounds for custom mode
+        xMin = AppState.customRangeStart;
+        xMax = AppState.customRangeEnd;
     }
-    // 'all' mode uses all data (no filtering)
+    // 'all' mode uses all data with auto bounds
 
-    if (filteredData.length === 0) {
-        AppState.chart.data.labels = [];
-        AppState.chart.data.datasets[0].data = [];
-        AppState.chart.update('none');
-        return;
+    // Convert to chart data with {x, y} format
+    const chartData = filteredData.map(d => ({
+        x: (d.time - connectionStart) / 1000,
+        y: unit.convert(d.weight)
+    }));
+
+    AppState.chart.data.datasets[0].data = chartData;
+
+    // Set x-axis bounds
+    if (xMin !== null && xMax !== null) {
+        AppState.chart.options.scales.x.min = Math.max(0, xMin);
+        AppState.chart.options.scales.x.max = xMax;
+    } else {
+        // Auto scale for 'all' mode
+        AppState.chart.options.scales.x.min = undefined;
+        AppState.chart.options.scales.x.max = undefined;
     }
 
-    // Convert to chart data - time relative to connection start
-    const labels = filteredData.map(d => ((d.time - connectionStart) / 1000).toFixed(1));
-    const data = filteredData.map(d => unit.convert(d.weight));
-
-    AppState.chart.data.labels = labels;
-    AppState.chart.data.datasets[0].data = data;
     AppState.chart.update('none');
 }
 

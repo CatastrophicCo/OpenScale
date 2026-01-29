@@ -78,15 +78,25 @@ unsigned long lastButtonRelease = 0;
 uint8_t buttonSequence[CALIBRATION_SEQUENCE_LENGTH];
 uint8_t sequenceIndex = 0;
 
+// Double-press detection
+uint8_t shortPressCount = 0;
+unsigned long lastShortPressTime = 0;
+const unsigned long DOUBLE_PRESS_WINDOW_MS = 400;  // Time window for double press
+
 // Calibration mode
 bool calibrationMode = false;
 bool calibrationWaitingForWeight = false;
+
+// Unit preview during long press
+bool showingUnitPreview = false;
 
 // =============================================================================
 // Forward Declarations
 // =============================================================================
 void performTare();
 void saveCalibration();
+void resetPeakWeight();
+void showUnitPreview();
 
 // =============================================================================
 // BLE Server Callbacks
@@ -300,20 +310,48 @@ void loadDisplayUnit() {
 }
 
 // =============================================================================
+// Reset Peak Weight
+// =============================================================================
+void resetPeakWeight() {
+  peakWeight = 0.0f;
+  lastActivityTime = millis();  // Reset inactivity timer
+  Serial.println("Peak weight reset");
+
+  // Show brief feedback on display
+  display.clearDisplay();
+  display.setTextSize(1);
+  display.setCursor(15, 12);
+  display.print("PEAK RESET");
+  display.display();
+  delay(300);
+}
+
+// =============================================================================
 // Toggle Display Unit
 // =============================================================================
 void toggleDisplayUnit() {
   displayUnit = (displayUnit == UNIT_LBS) ? UNIT_KG : UNIT_LBS;
   saveDisplayUnit();
   lastActivityTime = millis();  // Reset inactivity timer
+  showingUnitPreview = false;
+  Serial.printf("Unit changed to: %s\n", displayUnit == UNIT_LBS ? "lbs" : "kg");
+}
 
-  // Show feedback on display
+// =============================================================================
+// Show Unit Preview (called while button is held)
+// =============================================================================
+void showUnitPreview() {
+  // Show what unit will be selected when button is released
+  uint8_t previewUnit = (displayUnit == UNIT_LBS) ? UNIT_KG : UNIT_LBS;
+
   display.clearDisplay();
   display.setTextSize(2);
-  display.setCursor(20, 8);
-  display.print(displayUnit == UNIT_LBS ? "LBS" : "KG");
+  display.setCursor(20, 4);
+  display.print(previewUnit == UNIT_LBS ? "LBS" : "KG");
+  display.setTextSize(1);
+  display.setCursor(15, 24);
+  display.print("Release to set");
   display.display();
-  delay(500);
 }
 
 // =============================================================================
@@ -612,6 +650,30 @@ void handleButton() {
   // Debounce
   static unsigned long lastStateChange = 0;
   static bool lastState = false;
+  static bool pendingSinglePress = false;
+
+  // Check if button is being held for long press preview
+  if (buttonPressed && !calibrationMode) {
+    unsigned long holdDuration = currentTime - buttonPressStart;
+    if (holdDuration >= LONG_PRESS_MS && !showingUnitPreview) {
+      // Show unit preview when long press threshold is reached
+      showingUnitPreview = true;
+      showUnitPreview();
+      // Cancel any pending single press since this is now a long press
+      pendingSinglePress = false;
+      shortPressCount = 0;
+    }
+  }
+
+  // Check for pending single press (tare) after double-press window expires
+  if (pendingSinglePress && !buttonPressed && (currentTime - lastShortPressTime > DOUBLE_PRESS_WINDOW_MS)) {
+    // Single press confirmed - perform tare
+    Serial.println("Single press: Tare");
+    performTare();
+    pendingSinglePress = false;
+    shortPressCount = 0;
+    lastActivityTime = currentTime;
+  }
 
   if (currentState != lastState) {
     if (currentTime - lastStateChange > DEBOUNCE_MS) {
@@ -622,11 +684,13 @@ void handleButton() {
         // Button pressed
         buttonPressed = true;
         buttonPressStart = currentTime;
+        showingUnitPreview = false;
       } else {
         // Button released
         if (buttonPressed) {
           unsigned long pressDuration = currentTime - buttonPressStart;
           buttonPressed = false;
+          showingUnitPreview = false;
 
           // Check sequence timeout
           if (currentTime - lastButtonRelease > SEQUENCE_TIMEOUT_MS) {
@@ -644,7 +708,7 @@ void handleButton() {
             return;
           }
 
-          // Add to sequence
+          // Add to sequence for calibration detection
           if (sequenceIndex < CALIBRATION_SEQUENCE_LENGTH) {
             buttonSequence[sequenceIndex++] = isLongPress ? 1 : 0;
 
@@ -654,6 +718,8 @@ void handleButton() {
               calibrationMode = true;
               calibrationWaitingForWeight = false;
               sequenceIndex = 0;
+              pendingSinglePress = false;
+              shortPressCount = 0;
               return;
             }
           }
@@ -663,9 +729,27 @@ void handleButton() {
             Serial.println("Long press: Toggle units");
             toggleDisplayUnit();
             sequenceIndex = 0;  // Reset sequence after action
+            pendingSinglePress = false;
+            shortPressCount = 0;
           } else if (isShortPress) {
-            Serial.println("Short press: Tare");
-            performTare();
+            // Check for double press
+            if (currentTime - lastShortPressTime <= DOUBLE_PRESS_WINDOW_MS) {
+              shortPressCount++;
+            } else {
+              shortPressCount = 1;
+            }
+            lastShortPressTime = currentTime;
+
+            if (shortPressCount >= 2) {
+              // Double press detected - reset peak
+              Serial.println("Double press: Reset peak");
+              resetPeakWeight();
+              pendingSinglePress = false;
+              shortPressCount = 0;
+            } else {
+              // First short press - wait to see if it's a double press
+              pendingSinglePress = true;
+            }
           }
 
           lastActivityTime = currentTime;  // Reset inactivity timer
