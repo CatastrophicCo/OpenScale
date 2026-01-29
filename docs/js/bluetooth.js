@@ -162,7 +162,7 @@ const OpenScaleBLE = {
 
     // Read sample rate
     async readSampleRate() {
-        if (!this.isConnected || !this.characteristics.sampleRate) {
+        if (!this.characteristics.sampleRate) {
             return null;
         }
         try {
@@ -199,7 +199,7 @@ const OpenScaleBLE = {
 
     // Read calibration factor
     async readCalibration() {
-        if (!this.isConnected || !this.characteristics.calibration) {
+        if (!this.characteristics.calibration) {
             return null;
         }
         try {
@@ -278,7 +278,7 @@ const OpenScaleBLE = {
 
     // Read device name
     async readDeviceName() {
-        if (!this.isConnected || !this.characteristics.deviceName) {
+        if (!this.characteristics.deviceName) {
             return null;
         }
         try {
