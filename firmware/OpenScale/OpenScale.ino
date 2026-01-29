@@ -840,8 +840,13 @@ float readWeight() {
 // =============================================================================
 void sendWeightBLE() {
   if (deviceConnected && pWeightCharacteristic != nullptr) {
+    // Clamp small negative values to zero (same as display)
+    float weightToSend = currentWeight;
+    if (weightToSend < 0 && weightToSend >= -80.0f) {
+      weightToSend = 0.0f;
+    }
     // Always send weight in grams
-    pWeightCharacteristic->setValue((uint8_t*)&currentWeight, sizeof(float));
+    pWeightCharacteristic->setValue((uint8_t*)&weightToSend, sizeof(float));
     pWeightCharacteristic->notify();
   }
 }
