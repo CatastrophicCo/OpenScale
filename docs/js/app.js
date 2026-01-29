@@ -70,6 +70,7 @@ function initApp() {
         chartCanvas: document.getElementById('forceChart'),
         timeRangeSelect: document.getElementById('timeRangeSelect'),
         resetZoomBtn: document.getElementById('resetZoomBtn'),
+        clearGraphBtn: document.getElementById('clearGraphBtn'),
         customRangeControls: document.getElementById('customRangeControls'),
         customRangeStart: document.getElementById('customRangeStart'),
         customRangeEnd: document.getElementById('customRangeEnd'),
@@ -394,6 +395,11 @@ function setupEventListeners() {
     elements.resetZoomBtn.addEventListener('click', () => {
         resetChartZoom();
     });
+
+    // Clear graph button
+    elements.clearGraphBtn.addEventListener('click', () => {
+        clearGraph();
+    });
 }
 
 // Set up BLE callbacks
@@ -705,6 +711,20 @@ function resetChartZoom() {
         AppState.isZoomed = false;
         elements.resetZoomBtn.style.display = 'none';
     }
+}
+
+// Clear graph and reset start time
+function clearGraph() {
+    AppState.weightHistory = [];
+    AppState.connectionStartTime = Date.now();
+    AppState.isZoomed = false;
+    AppState.customRangeStart = null;
+    AppState.customRangeEnd = null;
+    elements.resetZoomBtn.style.display = 'none';
+    if (AppState.chart) {
+        AppState.chart.resetZoom();
+    }
+    updateChart();
 }
 
 // Load saved preferences

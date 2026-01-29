@@ -515,16 +515,22 @@ void initBLE() {
 void updateDisplay() {
   display.clearDisplay();
 
+  // Clamp small negative values to zero (ignore noise between -80g and 0g)
+  float displayWeightGrams = currentWeight;
+  if (displayWeightGrams < 0 && displayWeightGrams >= -80.0f) {
+    displayWeightGrams = 0.0f;
+  }
+
   // Convert weight based on current unit
   float displayWeight, displayPeak;
   const char* unitStr;
 
   if (displayUnit == UNIT_LBS) {
-    displayWeight = currentWeight * GRAMS_TO_LBS;
+    displayWeight = displayWeightGrams * GRAMS_TO_LBS;
     displayPeak = peakWeight * GRAMS_TO_LBS;
     unitStr = "lbs";
   } else {
-    displayWeight = currentWeight * GRAMS_TO_KG;
+    displayWeight = displayWeightGrams * GRAMS_TO_KG;
     displayPeak = peakWeight * GRAMS_TO_KG;
     unitStr = "kg";
   }

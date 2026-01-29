@@ -272,9 +272,10 @@ class OpenScaleBluetoothService extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Clear weight history
+  /// Clear weight history and reset start time
   void clearHistory() {
     _weightHistory.clear();
+    _connectionStartTime = DateTime.now();
     notifyListeners();
   }
 
