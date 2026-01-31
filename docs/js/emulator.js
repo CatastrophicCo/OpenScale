@@ -14,7 +14,7 @@ const OpenScaleEmulator = {
     tareOffset: 0.0,
 
     // Simulation settings
-    simulationMode: 'noise', // 'noise', 'pulls', 'hold', 'ramp', 'manual'
+    simulationMode: 'pulls', // 'noise', 'pulls', 'hold', 'ramp', 'manual'
     manualWeight: 0.0,
     noiseLevel: 50.0, // grams of noise
 
@@ -45,12 +45,16 @@ const OpenScaleEmulator = {
 
     // Connect to emulated device
     async connect() {
+        console.log('[Emulator] Connecting...');
         return new Promise((resolve) => {
             // Simulate connection delay
             setTimeout(() => {
                 this.isConnected = true;
                 this.isRunning = true;
                 this._startSimulation();
+
+                console.log('[Emulator] Connected, calling callbacks...');
+                console.log('[Emulator] onConnectionChange exists:', !!this.onConnectionChange);
 
                 if (this.onConnectionChange) {
                     this.onConnectionChange(true, this.deviceName);
@@ -65,7 +69,7 @@ const OpenScaleEmulator = {
                     this.onDeviceNameUpdate(this.deviceName);
                 }
 
-                console.log('[Emulator] Connected to', this.deviceName);
+                console.log('[Emulator] Connected to', this.deviceName, 'with mode:', this.simulationMode);
                 resolve(this.deviceName);
             }, 500);
         });

@@ -430,6 +430,16 @@ function setupEventListeners() {
 
     // Emulator controls
     elements.connectEmulatorBtn.addEventListener('click', async () => {
+        console.log('[App] Emulator button clicked');
+        console.log('[App] OpenScaleEmulator available:', typeof OpenScaleEmulator !== 'undefined');
+        console.log('[App] Current state - useEmulator:', AppState.useEmulator, 'isConnected:', OpenScaleEmulator?.isConnected);
+
+        if (typeof OpenScaleEmulator === 'undefined') {
+            console.error('[App] OpenScaleEmulator is not defined!');
+            alert('Emulator not available. Please refresh the page.');
+            return;
+        }
+
         if (AppState.useEmulator && OpenScaleEmulator.isConnected) {
             // Disconnect from emulator
             OpenScaleEmulator.disconnect();
@@ -445,11 +455,18 @@ function setupEventListeners() {
             elements.emulatorSettings.style.display = 'none';
         } else {
             // Connect to emulator
+            console.log('[App] Connecting to emulator...');
             AppState.useEmulator = true;
             AppState.bleInterface = OpenScaleEmulator;
             setupBLECallbacks(); // Re-setup callbacks for emulator
+
+            // Sync emulator mode with UI selection
+            const selectedMode = elements.emulatorModeSelect.value;
+            OpenScaleEmulator.setSimulationMode(selectedMode);
+
             try {
                 await OpenScaleEmulator.connect();
+                console.log('[App] Emulator connected successfully');
                 elements.connectEmulatorBtn.innerHTML = `
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                         <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
@@ -458,6 +475,11 @@ function setupEventListeners() {
                     </svg>
                     Disconnect Emulator`;
                 elements.emulatorSettings.style.display = 'block';
+
+                // Show manual weight control if in manual mode
+                if (selectedMode === 'manual') {
+                    elements.manualWeightControl.style.display = 'flex';
+                }
             } catch (error) {
                 console.error('Emulator connection failed:', error);
                 AppState.useEmulator = false;
@@ -495,8 +517,10 @@ function setupEventListeners() {
 // Set up BLE callbacks
 function setupBLECallbacks() {
     const ble = getBLE();
+    console.log('[App] Setting up callbacks on:', AppState.useEmulator ? 'Emulator' : 'BLE');
 
     ble.onConnectionChange = (connected, deviceName) => {
+        console.log('[App] onConnectionChange called:', connected, deviceName);
         if (connected) {
             const statusText = AppState.useEmulator ? 'Emulator Connected' : 'Connected';
             elements.connectionStatus.textContent = statusText;

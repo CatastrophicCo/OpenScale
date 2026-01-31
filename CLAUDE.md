@@ -153,3 +153,50 @@ The web app additionally supports:
 - Double-click to reset zoom
 
 Data is stored for up to 1 hour at the configured sample rate.
+
+### Device Emulator
+
+Both web and Flutter apps include a device emulator for testing without physical hardware.
+
+#### Web App Emulator
+
+1. Scroll down to the **Settings** section
+2. Find the **Device Emulator** section at the bottom
+3. Click **Connect Emulator**
+4. The status will change to "Emulator Connected" and weight data will start streaming
+5. Adjust simulation settings:
+   - **Simulation Mode**: Choose the type of simulated data
+   - **Manual Weight**: Set specific weight (only in Manual mode)
+   - **Noise Level**: Adjust random noise amplitude
+6. Click **Disconnect Emulator** to stop
+
+#### Flutter App Emulator
+
+1. Tap **Connect** to open the device list
+2. At the top of the list, select **OpenScale-EMU (Emulator)**
+3. The app connects immediately without Bluetooth
+4. When connected to the emulator, additional controls appear below the force graph
+5. Adjust simulation mode, weight, and noise from these controls
+
+#### Simulation Modes
+
+| Mode | Description |
+|------|-------------|
+| **Idle (Noise)** | Random fluctuations around zero - tests display stability |
+| **Climbing Pulls** | Realistic climbing pattern: 2-5s rest → quick load to 15-40kg → hold 3-10s with fatigue → quick release. Repeats continuously. |
+| **Sustained Hold** | Ramps to 20kg and holds with gradual fatigue simulation |
+| **Ramp Up/Down** | 10-second cycles smoothly ramping 0→30kg→0 |
+| **Manual** | Set exact weight via slider (0-50kg) with minimal noise |
+
+#### Emulator Files
+
+- `docs/js/emulator.js` - Web emulator implementation
+- `flutter-app/open_scale/lib/services/emulator_service.dart` - Flutter emulator
+- `flutter-app/open_scale/lib/services/scale_service.dart` - Unified service switching between real/emulator
+
+#### Use Cases
+
+- **UI Development**: Test app UI without hardware
+- **Demo Mode**: Show the app to others without a physical device
+- **Automated Testing**: Consistent, repeatable data for tests
+- **Graph Testing**: Verify chart behavior with known patterns
