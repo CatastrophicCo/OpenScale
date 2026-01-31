@@ -10,8 +10,16 @@ OpenScale is a Bluetooth-enabled force measurement device for climbing/hangboard
 - **Web app** (Web Bluetooth): Browser-based app for Chrome/Edge/Opera with live display and graphing
 
 ### Hardware
-- XIAO ESP32C6, HX711, 4-pin strain gauge, I2C OLED, tactile button
+Two hardware variants exist:
+
+**Prototype (XIAO dev board):**
+- XIAO ESP32C6, HX711, 4-pin strain gauge, I2C OLED (SSD1306), tactile button
 - Wiring: HX711 (DT→D4, SCK→D5), OLED (SCL→D0, SDA→D1), Button (D2→GND)
+
+**Custom PCB (production):**
+- ESP32-C6-MINI-1 module, HX711 IC, WO1602M-TFH-AT LCD (DigiKey), USB-C, LiPo charging
+- See `hardware/kicad/README.md` for full schematic and BOM
+- LCD uses ST7032 controller at I2C address 0x3E (not SSD1306)
 
 ### Button Functions
 - **Single press**: Tare the scale (zero the current reading)
@@ -28,8 +36,12 @@ Device enters deep sleep after 10 minutes of inactivity. Wake with long button p
 ### Firmware (Arduino)
 ```bash
 # Requires Arduino IDE or arduino-cli with ESP32 board support
-# Board: Seeed XIAO ESP32C6
-# Required libraries: HX711 (bogde), Adafruit SSD1306, Adafruit GFX
+# Board: Seeed XIAO ESP32C6 (prototype) or ESP32-C6 (custom PCB)
+
+# Required libraries (prototype with OLED):
+#   HX711 (bogde), Adafruit SSD1306, Adafruit GFX
+# Required libraries (custom PCB with LCD):
+#   HX711 (bogde), ST7032 or LiquidCrystal_I2C
 
 # Compile (arduino-cli)
 arduino-cli compile --fqbn esp32:esp32:XIAO_ESP32C6 firmware/OpenScale

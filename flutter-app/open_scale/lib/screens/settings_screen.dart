@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/scale_service.dart';
 import '../services/bluetooth_service.dart';
 import '../models/weight_data.dart';
 
@@ -16,8 +17,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
   @override
   void initState() {
     super.initState();
-    final bt = context.read<OpenScaleBluetoothService>();
-    _deviceNameController.text = bt.customDeviceName;
+    final service = context.read<OpenScaleService>();
+    _deviceNameController.text = service.customDeviceName;
   }
 
   @override
@@ -33,8 +34,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         title: const Text('Settings'),
         backgroundColor: const Color(0xFF1E293B),
       ),
-      body: Consumer<OpenScaleBluetoothService>(
-        builder: (context, bluetooth, _) {
+      body: Consumer<OpenScaleService>(
+        builder: (context, service, _) {
           return ListView(
             padding: const EdgeInsets.all(16),
             children: [
@@ -45,25 +46,32 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     ListTile(
                       title: const Text('Status'),
-                      trailing: _buildConnectionStatus(bluetooth.connectionState),
+                      trailing: _buildConnectionStatus(service.connectionState, service.useEmulator),
                     ),
-                    if (bluetooth.connectionState == ConnectionState.connected) ...[
+                    if (service.connectionState == ConnectionState.connected) ...[
                       const Divider(height: 1),
                       ListTile(
                         title: const Text('Device Name'),
-                        subtitle: Text(bluetooth.customDeviceName.isNotEmpty
-                            ? bluetooth.customDeviceName
-                            : bluetooth.deviceName),
-                        trailing: IconButton(
-                          icon: const Icon(Icons.edit),
-                          onPressed: () => _showRenameDialog(context, bluetooth),
-                        ),
+                        subtitle: Text(service.useEmulator
+                            ? '${service.deviceName} (Emulator)'
+                            : service.customDeviceName.isNotEmpty
+                                ? service.customDeviceName
+                                : service.deviceName),
+                        trailing: service.useEmulator
+                            ? null
+                            : IconButton(
+                                icon: const Icon(Icons.edit),
+                                onPressed: () => _showRenameDialog(context, service),
+                              ),
                       ),
                       const Divider(height: 1),
                       ListTile(
                         title: const Text('Disconnect'),
-                        leading: const Icon(Icons.bluetooth_disabled, color: Colors.red),
-                        onTap: bluetooth.disconnect,
+                        leading: Icon(
+                          service.useEmulator ? Icons.computer : Icons.bluetooth_disabled,
+                          color: Colors.red,
+                        ),
+                        onTap: service.disconnect,
                       ),
                     ],
                   ],
@@ -79,7 +87,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ListTile(
                       title: const Text('Weight Unit'),
                       trailing: DropdownButton<WeightUnit>(
-                        value: bluetooth.unit,
+                        value: service.unit,
                         underline: const SizedBox(),
                         items: WeightUnit.values.map((unit) {
                           return DropdownMenuItem(
@@ -89,7 +97,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
                         }).toList(),
                         onChanged: (unit) {
                           if (unit != null) {
-                            bluetooth.setUnit(unit);
+                            service.setUnit(unit);
                           }
                         },
                       ),
@@ -106,18 +114,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
                   children: [
                     ListTile(
                       title: const Text('Sample Rate'),
-                      subtitle: Text('${bluetooth.sampleRate} Hz'),
+                      subtitle: Text('${service.sampleRate} Hz'),
                     ),
                     Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16),
                       child: Slider(
-                        value: bluetooth.sampleRate.toDouble(),
+                        value: service.sampleRate.toDouble(),
                         min: 1,
                         max: 80,
                         divisions: 79,
-                        label: '${bluetooth.sampleRate} Hz',
-                        onChanged: bluetooth.connectionState == ConnectionState.connected
-                            ? (value) => bluetooth.setSampleRate(value.round())
+                        label: '${service.sampleRate} Hz',
+                        onChanged: service.connectionState == ConnectionState.connected
+                            ? (value) => service.setSampleRate(value.round())
                             : null,
                       ),
                     ),
@@ -141,19 +149,19 @@ class _SettingsScreenState extends State<SettingsScreen> {
                     ListTile(
                       title: const Text('Tare / Zero Scale'),
                       leading: const Icon(Icons.restart_alt),
-                      onTap: bluetooth.connectionState == ConnectionState.connected
-                          ? bluetooth.tare
+                      onTap: service.connectionState == ConnectionState.connected
+                          ? service.tare
                           : null,
-                      enabled: bluetooth.connectionState == ConnectionState.connected,
+                      enabled: service.connectionState == ConnectionState.connected,
                     ),
                     const Divider(height: 1),
                     ListTile(
                       title: const Text('Current Calibration Factor'),
-                      subtitle: Text(bluetooth.calibrationFactor.toStringAsFixed(2)),
+                      subtitle: Text(service.calibrationFactor.toStringAsFixed(2)),
                       trailing: IconButton(
                         icon: const Icon(Icons.edit),
-                        onPressed: bluetooth.connectionState == ConnectionState.connected
-                            ? () => _showManualCalibrationDialog(context, bluetooth)
+                        onPressed: service.connectionState == ConnectionState.connected
+                            ? () => _showManualCalibrationDialog(context, service)
                             : null,
                       ),
                     ),
@@ -162,10 +170,10 @@ class _SettingsScreenState extends State<SettingsScreen> {
                       title: const Text('Auto Calibration'),
                       subtitle: const Text('Use a known weight'),
                       leading: const Icon(Icons.straighten),
-                      onTap: bluetooth.connectionState == ConnectionState.connected
-                          ? () => _startCalibrationProcess(context, bluetooth)
+                      onTap: service.connectionState == ConnectionState.connected
+                          ? () => _startCalibrationProcess(context, service)
                           : null,
-                      enabled: bluetooth.connectionState == ConnectionState.connected,
+                      enabled: service.connectionState == ConnectionState.connected,
                     ),
                     const Padding(
                       padding: EdgeInsets.all(16),
@@ -222,7 +230,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  Widget _buildConnectionStatus(ConnectionState state) {
+  Widget _buildConnectionStatus(ConnectionState state, bool useEmulator) {
     Color color;
     String text;
 
@@ -240,8 +248,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
         text = 'Connecting...';
         break;
       case ConnectionState.connected:
-        color = Colors.green;
-        text = 'Connected';
+        color = useEmulator ? Colors.orange : Colors.green;
+        text = useEmulator ? 'Emulator' : 'Connected';
         break;
     }
 
@@ -273,8 +281,8 @@ class _SettingsScreenState extends State<SettingsScreen> {
     }
   }
 
-  void _showRenameDialog(BuildContext context, OpenScaleBluetoothService bluetooth) {
-    _deviceNameController.text = bluetooth.customDeviceName;
+  void _showRenameDialog(BuildContext context, OpenScaleService service) {
+    _deviceNameController.text = service.customDeviceName;
 
     showDialog(
       context: context,
@@ -307,7 +315,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
             FilledButton(
               onPressed: () {
                 if (_deviceNameController.text.isNotEmpty) {
-                  bluetooth.setDeviceName(_deviceNameController.text);
+                  service.setDeviceName(_deviceNameController.text);
                 }
                 Navigator.pop(context);
               },
@@ -319,18 +327,18 @@ class _SettingsScreenState extends State<SettingsScreen> {
     );
   }
 
-  void _startCalibrationProcess(BuildContext context, OpenScaleBluetoothService bluetooth) {
+  void _startCalibrationProcess(BuildContext context, OpenScaleService service) {
     showDialog(
       context: context,
       barrierDismissible: false,
       builder: (context) {
-        return _CalibrationDialog(bluetooth: bluetooth);
+        return _CalibrationDialog(service: service);
       },
     );
   }
 
-  void _showManualCalibrationDialog(BuildContext context, OpenScaleBluetoothService bluetooth) {
-    final controller = TextEditingController(text: bluetooth.calibrationFactor.toStringAsFixed(2));
+  void _showManualCalibrationDialog(BuildContext context, OpenScaleService service) {
+    final controller = TextEditingController(text: service.calibrationFactor.toStringAsFixed(2));
 
     showDialog(
       context: context,
@@ -364,7 +372,7 @@ class _SettingsScreenState extends State<SettingsScreen> {
               onPressed: () async {
                 final factor = double.tryParse(controller.text);
                 if (factor != null && factor > 0) {
-                  await bluetooth.setCalibration(factor);
+                  await service.setCalibration(factor);
                   if (context.mounted) {
                     Navigator.pop(context);
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -388,9 +396,9 @@ class _SettingsScreenState extends State<SettingsScreen> {
 
 /// Calibration dialog with step-by-step process and custom weight support
 class _CalibrationDialog extends StatefulWidget {
-  final OpenScaleBluetoothService bluetooth;
+  final OpenScaleService service;
 
-  const _CalibrationDialog({required this.bluetooth});
+  const _CalibrationDialog({required this.service});
 
   @override
   State<_CalibrationDialog> createState() => _CalibrationDialogState();
@@ -431,7 +439,7 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
     });
 
     try {
-      await widget.bluetooth.startCalibration();
+      await widget.service.startCalibration();
     } catch (e) {
       setState(() {
         _error = 'Failed to start calibration: $e';
@@ -447,7 +455,7 @@ class _CalibrationDialogState extends State<_CalibrationDialog> {
     });
 
     try {
-      _newFactor = await widget.bluetooth.completeCalibrationWithWeight(_weightInGrams);
+      _newFactor = await widget.service.completeCalibrationWithWeight(_weightInGrams);
       setState(() {
         _step = 3;
       });

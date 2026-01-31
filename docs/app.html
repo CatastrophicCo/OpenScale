@@ -108,6 +108,7 @@
                         </select>
                         <button id="resetZoomBtn" class="btn btn-secondary btn-sm" style="display: none;">Reset Zoom</button>
                         <button id="clearGraphBtn" class="btn btn-secondary btn-sm" title="Clear graph and reset start time">Clear</button>
+                        <button id="exportCsvBtn" class="btn btn-secondary btn-sm" title="Export graph data as CSV">Export CSV</button>
                     </div>
                 </div>
                 <div id="customRangeControls" class="custom-range-controls" style="display: none;">
@@ -206,6 +207,48 @@
                         </div>
                         <p class="setting-description">Custom name for your device (max 20 characters). Restart device for changes to take effect.</p>
                     </div>
+
+                    <!-- Device Emulator -->
+                    <div class="setting-group emulator-section">
+                        <label class="setting-label">Device Emulator</label>
+                        <p class="setting-description">Test the app without a physical OpenScale device.</p>
+                        <div class="emulator-controls">
+                            <button id="connectEmulatorBtn" class="btn btn-secondary">
+                                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                                    <line x1="8" y1="21" x2="16" y2="21"/>
+                                    <line x1="12" y1="17" x2="12" y2="21"/>
+                                </svg>
+                                Connect Emulator
+                            </button>
+                        </div>
+                        <div id="emulatorSettings" class="emulator-settings" style="display: none;">
+                            <div class="emulator-setting">
+                                <label>Simulation Mode:</label>
+                                <select id="emulatorModeSelect" class="unit-select">
+                                    <option value="noise">Idle (Noise Only)</option>
+                                    <option value="pulls" selected>Climbing Pulls</option>
+                                    <option value="hold">Sustained Hold</option>
+                                    <option value="ramp">Ramp Up/Down</option>
+                                    <option value="manual">Manual Weight</option>
+                                </select>
+                            </div>
+                            <div id="manualWeightControl" class="emulator-setting" style="display: none;">
+                                <label>Manual Weight:</label>
+                                <div class="slider-container">
+                                    <input type="range" id="manualWeightSlider" class="slider" min="0" max="50000" value="0" step="100">
+                                    <span id="manualWeightValue" class="slider-value">0 g</span>
+                                </div>
+                            </div>
+                            <div class="emulator-setting">
+                                <label>Noise Level:</label>
+                                <div class="slider-container">
+                                    <input type="range" id="noiseLevelSlider" class="slider" min="0" max="200" value="50">
+                                    <span id="noiseLevelValue" class="slider-value">50 g</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
         </div>
@@ -217,6 +260,7 @@
     </div>
 
     <script src="js/bluetooth.js"></script>
+    <script src="js/emulator.js"></script>
     <script src="js/app.js"></script>
 </body>
 </html>

@@ -91,12 +91,130 @@ bool calibrationWaitingForWeight = false;
 bool showingUnitPreview = false;
 
 // =============================================================================
+// Spike Filter Configuration
+// =============================================================================
+#define SPIKE_FILTER_SAMPLES    5       // Number of samples in filter buffer
+#define SPIKE_THRESHOLD_FACTOR  3.0f    // Spike if reading > factor * recent max
+#define SPIKE_MIN_THRESHOLD     5000.0f // Minimum jump to be considered spike (grams)
+#define SPIKE_CONFIRM_COUNT     3       // Readings needed to confirm a valid peak
+
+float filterBuffer[SPIKE_FILTER_SAMPLES];
+uint8_t filterIndex = 0;
+bool filterInitialized = false;
+float recentMaxWeight = 0.0f;           // Max weight seen in recent history
+float pendingPeakWeight = 0.0f;         // Potential new peak being verified
+uint8_t peakConfirmCount = 0;           // Counter for peak confirmation
+
+// =============================================================================
 // Forward Declarations
 // =============================================================================
 void performTare();
 void saveCalibration();
 void resetPeakWeight();
 void showUnitPreview();
+void initSpikeFilter();
+bool isSpikeReading(float weight);
+void updatePeakWithFilter(float weight);
+
+// =============================================================================
+// Spike Filter Functions
+// =============================================================================
+
+// Initialize the spike filter buffer
+void initSpikeFilter() {
+  for (int i = 0; i < SPIKE_FILTER_SAMPLES; i++) {
+    filterBuffer[i] = 0.0f;
+  }
+  filterIndex = 0;
+  filterInitialized = false;
+  recentMaxWeight = 0.0f;
+  pendingPeakWeight = 0.0f;
+  peakConfirmCount = 0;
+}
+
+// Check if a reading is likely a spike/outlier
+bool isSpikeReading(float weight) {
+  // Need positive weight to evaluate
+  if (weight <= 0) return false;
+
+  // If filter not initialized yet, can't detect spikes
+  if (!filterInitialized) return false;
+
+  // Find the max of recent readings in buffer
+  float bufferMax = 0.0f;
+  for (int i = 0; i < SPIKE_FILTER_SAMPLES; i++) {
+    if (filterBuffer[i] > bufferMax) {
+      bufferMax = filterBuffer[i];
+    }
+  }
+
+  // Calculate jump from recent max
+  float jump = weight - bufferMax;
+
+  // It's a spike if the jump exceeds threshold AND is above minimum
+  if (jump > SPIKE_MIN_THRESHOLD && weight > bufferMax * SPIKE_THRESHOLD_FACTOR) {
+    return true;
+  }
+
+  return false;
+}
+
+// Add reading to filter buffer
+void addToFilterBuffer(float weight) {
+  filterBuffer[filterIndex] = weight;
+  filterIndex = (filterIndex + 1) % SPIKE_FILTER_SAMPLES;
+
+  // Mark as initialized after buffer is filled once
+  if (!filterInitialized && filterIndex == 0) {
+    filterInitialized = true;
+  }
+}
+
+// Update peak weight with spike filtering
+void updatePeakWithFilter(float weight) {
+  // Always add to filter buffer
+  addToFilterBuffer(weight);
+
+  // Track recent max for comparison
+  if (weight > recentMaxWeight) {
+    recentMaxWeight = weight;
+  }
+
+  // Check if this reading could be a new peak
+  if (weight > peakWeight) {
+    // Check if this might be a spike
+    if (isSpikeReading(weight)) {
+      // Potential spike - need confirmation
+      if (weight >= pendingPeakWeight) {
+        pendingPeakWeight = weight;
+        peakConfirmCount = 1;  // Start counting
+      }
+    } else {
+      // Not a spike - update peak directly
+      peakWeight = weight;
+      pendingPeakWeight = 0.0f;
+      peakConfirmCount = 0;
+    }
+  } else if (pendingPeakWeight > 0 && weight > peakWeight * 0.8f) {
+    // We have a pending peak and weight is still high
+    // Increment confirmation counter
+    peakConfirmCount++;
+
+    if (peakConfirmCount >= SPIKE_CONFIRM_COUNT) {
+      // Sustained high reading - it's a valid peak
+      peakWeight = pendingPeakWeight;
+      pendingPeakWeight = 0.0f;
+      peakConfirmCount = 0;
+    }
+  } else {
+    // Weight dropped significantly - reset pending peak
+    pendingPeakWeight = 0.0f;
+    peakConfirmCount = 0;
+  }
+
+  // Decay recent max slowly to allow for new pulls
+  recentMaxWeight *= 0.999f;
+}
 
 // =============================================================================
 // BLE Server Callbacks
@@ -265,6 +383,7 @@ class DeviceNameCallbacks : public BLECharacteristicCallbacks {
 void performTare() {
   scale.tare(10);  // Average 10 readings for tare
   peakWeight = 0.0f;  // Reset peak weight
+  initSpikeFilter();  // Reset spike filter
   lastActivityTime = millis();  // Reset inactivity timer
   Serial.println("Scale tared");
 }
@@ -314,6 +433,9 @@ void loadDisplayUnit() {
 // =============================================================================
 void resetPeakWeight() {
   peakWeight = 0.0f;
+  pendingPeakWeight = 0.0f;
+  peakConfirmCount = 0;
+  recentMaxWeight = 0.0f;
   lastActivityTime = millis();  // Reset inactivity timer
   Serial.println("Peak weight reset");
 
@@ -893,6 +1015,9 @@ void setup() {
   lastActivityTime = millis();
   previousWeight = 0.0f;
 
+  // Initialize spike filter
+  initSpikeFilter();
+
   // Update display with initial state
   updateDisplay();
 
@@ -922,20 +1047,21 @@ void loop() {
     // Read weight
     currentWeight = readWeight();
 
-    // Update peak weight
-    if (currentWeight > peakWeight) {
-      peakWeight = currentWeight;
-    }
+    // Update peak weight with spike filtering
+    updatePeakWithFilter(currentWeight);
 
     // Send via BLE
     sendWeightBLE();
   }
 
   // Update display less frequently to avoid flicker
+  // Skip if showing unit preview (button held down for unit toggle)
   static unsigned long lastDisplayUpdate = 0;
   if (currentTime - lastDisplayUpdate >= (1000 / DISPLAY_UPDATE_RATE_HZ)) {
     lastDisplayUpdate = currentTime;
-    updateDisplay();
+    if (!showingUnitPreview) {
+      updateDisplay();
+    }
   }
 
   // Check for inactivity (power management)

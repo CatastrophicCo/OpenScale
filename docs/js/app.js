@@ -20,8 +20,16 @@ const AppState = {
     customRangeStart: null,
     customRangeEnd: null,
     isZoomed: false,
-    connectionStartTime: null
+    connectionStartTime: null,
+    // Emulator state
+    useEmulator: false,
+    bleInterface: null // Will be set to either OpenScaleBLE or OpenScaleEmulator
 };
+
+// Get the active BLE interface (real or emulator)
+function getBLE() {
+    return AppState.bleInterface || OpenScaleBLE;
+}
 
 // Unit conversion
 const Units = {
@@ -71,6 +79,7 @@ function initApp() {
         timeRangeSelect: document.getElementById('timeRangeSelect'),
         resetZoomBtn: document.getElementById('resetZoomBtn'),
         clearGraphBtn: document.getElementById('clearGraphBtn'),
+        exportCsvBtn: document.getElementById('exportCsvBtn'),
         customRangeControls: document.getElementById('customRangeControls'),
         customRangeStart: document.getElementById('customRangeStart'),
         customRangeEnd: document.getElementById('customRangeEnd'),
@@ -97,8 +106,21 @@ function initApp() {
         calibrationWeightUnit: document.getElementById('calibrationWeightUnit'),
         calibrationWeightDisplay: document.getElementById('calibrationWeightDisplay'),
         manualCalibrationInput: document.getElementById('manualCalibrationInput'),
-        setCalibrationBtn: document.getElementById('setCalibrationBtn')
+        setCalibrationBtn: document.getElementById('setCalibrationBtn'),
+
+        // Emulator
+        connectEmulatorBtn: document.getElementById('connectEmulatorBtn'),
+        emulatorSettings: document.getElementById('emulatorSettings'),
+        emulatorModeSelect: document.getElementById('emulatorModeSelect'),
+        manualWeightControl: document.getElementById('manualWeightControl'),
+        manualWeightSlider: document.getElementById('manualWeightSlider'),
+        manualWeightValue: document.getElementById('manualWeightValue'),
+        noiseLevelSlider: document.getElementById('noiseLevelSlider'),
+        noiseLevelValue: document.getElementById('noiseLevelValue')
     };
+
+    // Initialize BLE interface to real hardware by default
+    AppState.bleInterface = OpenScaleBLE;
 
     // Check browser support
     checkBrowserSupport();
@@ -131,7 +153,7 @@ function setupEventListeners() {
         try {
             elements.connectBtn.disabled = true;
             elements.connectBtn.textContent = 'Connecting...';
-            await OpenScaleBLE.connect();
+            await getBLE().connect();
         } catch (error) {
             console.error('Connection failed:', error);
             alert('Connection failed: ' + error.message);
@@ -142,13 +164,13 @@ function setupEventListeners() {
 
     // Disconnect button
     elements.disconnectBtn.addEventListener('click', () => {
-        OpenScaleBLE.disconnect();
+        getBLE().disconnect();
     });
 
     // Tare button
     elements.tareBtn.addEventListener('click', async () => {
         try {
-            await OpenScaleBLE.tare();
+            await getBLE().tare();
             AppState.maxWeight = 0;
             updateMaxWeightDisplay();
         } catch (error) {
@@ -179,7 +201,7 @@ function setupEventListeners() {
     elements.sampleRateSlider.addEventListener('change', async (e) => {
         const rate = parseInt(e.target.value);
         try {
-            await OpenScaleBLE.setSampleRate(rate);
+            await getBLE().setSampleRate(rate);
         } catch (error) {
             console.error('Failed to set sample rate:', error);
         }
@@ -230,7 +252,7 @@ function setupEventListeners() {
             elements.startCalibrationBtn.disabled = true;
             elements.startCalibrationBtn.textContent = 'Starting...';
 
-            await OpenScaleBLE.startCalibration();
+            await getBLE().startCalibration();
             AppState.calibrationInProgress = true;
 
             // Show calibration in progress UI
@@ -270,7 +292,7 @@ function setupEventListeners() {
             const newFactor = rawReading / AppState.calibrationWeightGrams;
 
             // Send the calculated factor to the device
-            await OpenScaleBLE.setCalibration(newFactor);
+            await getBLE().setCalibration(newFactor);
 
             AppState.calibrationInProgress = false;
 
@@ -296,8 +318,8 @@ function setupEventListeners() {
         elements.calibrationNormal.style.display = 'block';
 
         // Re-read calibration to restore proper scale factor on device
-        if (OpenScaleBLE.isConnected) {
-            await OpenScaleBLE.readCalibration();
+        if (getBLE().isConnected) {
+            await getBLE().readCalibration();
         }
     });
 
@@ -314,7 +336,7 @@ function setupEventListeners() {
             elements.setCalibrationBtn.disabled = true;
             elements.setCalibrationBtn.textContent = 'Setting...';
 
-            await OpenScaleBLE.setCalibration(factor);
+            await getBLE().setCalibration(factor);
 
             alert('Calibration factor set to ' + factor.toFixed(2));
 
@@ -341,7 +363,7 @@ function setupEventListeners() {
             return;
         }
         try {
-            await OpenScaleBLE.setDeviceName(name);
+            await getBLE().setDeviceName(name);
             alert('Device name updated. Restart the device for the new name to appear in Bluetooth scanning.');
         } catch (error) {
             console.error('Failed to set device name:', error);
@@ -400,13 +422,84 @@ function setupEventListeners() {
     elements.clearGraphBtn.addEventListener('click', () => {
         clearGraph();
     });
+
+    // Export CSV button
+    elements.exportCsvBtn.addEventListener('click', () => {
+        exportToCsv();
+    });
+
+    // Emulator controls
+    elements.connectEmulatorBtn.addEventListener('click', async () => {
+        if (AppState.useEmulator && OpenScaleEmulator.isConnected) {
+            // Disconnect from emulator
+            OpenScaleEmulator.disconnect();
+            AppState.useEmulator = false;
+            AppState.bleInterface = OpenScaleBLE;
+            elements.connectEmulatorBtn.innerHTML = `
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                    <line x1="8" y1="21" x2="16" y2="21"/>
+                    <line x1="12" y1="17" x2="12" y2="21"/>
+                </svg>
+                Connect Emulator`;
+            elements.emulatorSettings.style.display = 'none';
+        } else {
+            // Connect to emulator
+            AppState.useEmulator = true;
+            AppState.bleInterface = OpenScaleEmulator;
+            setupBLECallbacks(); // Re-setup callbacks for emulator
+            try {
+                await OpenScaleEmulator.connect();
+                elements.connectEmulatorBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    Disconnect Emulator`;
+                elements.emulatorSettings.style.display = 'block';
+            } catch (error) {
+                console.error('Emulator connection failed:', error);
+                AppState.useEmulator = false;
+                AppState.bleInterface = OpenScaleBLE;
+            }
+        }
+    });
+
+    // Emulator mode select
+    elements.emulatorModeSelect.addEventListener('change', (e) => {
+        OpenScaleEmulator.setSimulationMode(e.target.value);
+        // Show/hide manual weight control
+        if (e.target.value === 'manual') {
+            elements.manualWeightControl.style.display = 'flex';
+        } else {
+            elements.manualWeightControl.style.display = 'none';
+        }
+    });
+
+    // Manual weight slider
+    elements.manualWeightSlider.addEventListener('input', (e) => {
+        const weight = parseInt(e.target.value);
+        elements.manualWeightValue.textContent = weight + ' g';
+        OpenScaleEmulator.setManualWeight(weight);
+    });
+
+    // Noise level slider
+    elements.noiseLevelSlider.addEventListener('input', (e) => {
+        const level = parseInt(e.target.value);
+        elements.noiseLevelValue.textContent = level + ' g';
+        OpenScaleEmulator.setNoiseLevel(level);
+    });
 }
 
 // Set up BLE callbacks
 function setupBLECallbacks() {
-    OpenScaleBLE.onConnectionChange = (connected, deviceName) => {
+    const ble = getBLE();
+
+    ble.onConnectionChange = (connected, deviceName) => {
         if (connected) {
-            elements.connectionStatus.textContent = 'Connected';
+            const statusText = AppState.useEmulator ? 'Emulator Connected' : 'Connected';
+            elements.connectionStatus.textContent = statusText;
             elements.connectionStatus.className = 'status connected';
             elements.deviceNameDisplay.textContent = deviceName || 'OpenScale';
             elements.connectBtn.style.display = 'none';
@@ -443,10 +536,23 @@ function setupBLECallbacks() {
             elements.calibrationNormal.style.display = 'block';
             elements.calibrationFactorDisplay.textContent = '--';
             AppState.calibrationInProgress = false;
+            // Reset emulator UI if it was the emulator
+            if (AppState.useEmulator) {
+                elements.emulatorSettings.style.display = 'none';
+                elements.connectEmulatorBtn.innerHTML = `
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                        <rect x="2" y="3" width="20" height="14" rx="2" ry="2"/>
+                        <line x1="8" y1="21" x2="16" y2="21"/>
+                        <line x1="12" y1="17" x2="12" y2="21"/>
+                    </svg>
+                    Connect Emulator`;
+                AppState.useEmulator = false;
+                AppState.bleInterface = OpenScaleBLE;
+            }
         }
     };
 
-    OpenScaleBLE.onWeightUpdate = (weight) => {
+    ble.onWeightUpdate = (weight) => {
         AppState.currentWeight = weight;
         if (weight > AppState.maxWeight) {
             AppState.maxWeight = weight;
@@ -456,7 +562,7 @@ function setupBLECallbacks() {
         addWeightToHistory(weight);
     };
 
-    OpenScaleBLE.onSampleRateUpdate = (rate) => {
+    ble.onSampleRateUpdate = (rate) => {
         AppState.sampleRate = rate;
         elements.sampleRateSlider.value = rate;
         elements.sampleRateValue.textContent = rate + ' Hz';
@@ -464,12 +570,19 @@ function setupBLECallbacks() {
         AppState.maxHistoryLength = rate * 3600;
     };
 
-    OpenScaleBLE.onCalibrationUpdate = (factor) => {
+    ble.onCalibrationUpdate = (factor) => {
+        console.log('onCalibrationUpdate called with factor:', factor);
+        console.log('calibrationFactorDisplay element:', elements.calibrationFactorDisplay);
         AppState.calibrationFactor = factor;
-        elements.calibrationFactorDisplay.textContent = factor.toFixed(2);
+        if (elements.calibrationFactorDisplay) {
+            elements.calibrationFactorDisplay.textContent = factor.toFixed(2);
+            console.log('Display updated to:', factor.toFixed(2));
+        } else {
+            console.error('calibrationFactorDisplay element not found!');
+        }
     };
 
-    OpenScaleBLE.onDeviceNameUpdate = (name) => {
+    ble.onDeviceNameUpdate = (name) => {
         AppState.deviceName = name;
         elements.deviceNameInput.value = name;
     };
@@ -734,6 +847,50 @@ function loadPreferences() {
         AppState.unit = savedUnit;
         elements.unitSelect.value = savedUnit;
     }
+}
+
+// Export graph data to CSV
+function exportToCsv() {
+    if (AppState.weightHistory.length === 0) {
+        alert('No data to export. Connect to a device and collect some measurements first.');
+        return;
+    }
+
+    const connectionStart = AppState.connectionStartTime || AppState.weightHistory[0].time;
+
+    // Build CSV content with headers
+    let csvContent = 'Time (seconds),Weight (grams),Weight (kg),Weight (lbs)\n';
+
+    // Add each data point
+    for (const point of AppState.weightHistory) {
+        const timeSeconds = ((point.time - connectionStart) / 1000).toFixed(3);
+        const weightGrams = point.weight.toFixed(1);
+        const weightKg = (point.weight / 1000).toFixed(4);
+        const weightLbs = (point.weight / 453.592).toFixed(3);
+
+        csvContent += `${timeSeconds},${weightGrams},${weightKg},${weightLbs}\n`;
+    }
+
+    // Create blob and download link
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+
+    // Generate filename with timestamp
+    const now = new Date();
+    const timestamp = now.toISOString().replace(/[:.]/g, '-').slice(0, 19);
+    const filename = `openscale-data-${timestamp}.csv`;
+
+    // Create temporary link and trigger download
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = filename;
+    link.style.display = 'none';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+
+    // Clean up the URL object
+    URL.revokeObjectURL(url);
 }
 
 // Initialize when DOM is ready

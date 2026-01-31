@@ -675,3 +675,50 @@ body {
         grid-template-columns: 1fr;
     }
 }
+
+/* Emulator Section */
+.emulator-section {
+    border-top: 1px dashed var(--color-border);
+    padding-top: 16px;
+    margin-top: 8px;
+}
+
+.emulator-controls {
+    margin: 8px 0;
+}
+
+.emulator-controls .btn svg {
+    margin-right: 6px;
+}
+
+.emulator-settings {
+    background: var(--color-bg);
+    border-radius: var(--radius-sm);
+    padding: 12px;
+    margin-top: 12px;
+}
+
+.emulator-setting {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 12px;
+}
+
+.emulator-setting:last-child {
+    margin-bottom: 0;
+}
+
+.emulator-setting label {
+    font-size: 0.875rem;
+    color: var(--color-text-muted);
+    min-width: 120px;
+}
+
+.emulator-setting .slider-container {
+    flex: 1;
+}
+
+.emulator-setting select {
+    flex: 1;
+}

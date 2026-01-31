@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "WebFetch(domain:www.digikey.com)",
+      "WebSearch",
+      "WebFetch(domain:www.winstar.com.tw)"
+    ]
+  }
+}

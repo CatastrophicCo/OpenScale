@@ -71,9 +71,14 @@ const OpenScaleBLE = {
             await this.subscribeToWeight();
 
             // Read initial values
+            console.log('Reading initial values...');
+            console.log('Reading sample rate...');
             await this.readSampleRate();
+            console.log('Reading calibration...');
             await this.readCalibration();
+            console.log('Reading device name...');
             await this.readDeviceName();
+            console.log('All initial values read');
 
             this.isConnected = true;
             if (this.onConnectionChange) {
@@ -199,13 +204,22 @@ const OpenScaleBLE = {
 
     // Read calibration factor
     async readCalibration() {
+        console.log('readCalibration called, characteristic:', this.characteristics.calibration);
         if (!this.characteristics.calibration) {
+            console.log('No calibration characteristic');
             return null;
         }
         try {
             const value = await this.characteristics.calibration.readValue();
+            console.log('Calibration raw value:', value, 'byteLength:', value.byteLength);
+            if (value.byteLength < 4) {
+                console.error('Calibration value too short:', value.byteLength);
+                return null;
+            }
             const factor = value.getFloat32(0, true); // Little-endian
+            console.log('Calibration factor:', factor, 'callback exists:', !!this.onCalibrationUpdate);
             if (this.onCalibrationUpdate) {
+                console.log('Calling onCalibrationUpdate with:', factor);
                 this.onCalibrationUpdate(factor);
             }
             return factor;

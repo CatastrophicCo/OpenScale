@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../services/scale_service.dart';
 import '../services/bluetooth_service.dart';
+import '../services/emulator_service.dart';
 import '../widgets/weight_display.dart';
 import '../widgets/force_chart.dart';
 import '../widgets/connection_status.dart';
@@ -27,8 +29,8 @@ class HomeScreen extends StatelessWidget {
           ),
         ],
       ),
-      body: Consumer<OpenScaleBluetoothService>(
-        builder: (context, bluetooth, _) {
+      body: Consumer<OpenScaleService>(
+        builder: (context, scaleService, _) {
           return SingleChildScrollView(
             padding: const EdgeInsets.all(16),
             child: Column(
@@ -36,23 +38,25 @@ class HomeScreen extends StatelessWidget {
               children: [
                 // Connection status
                 ConnectionStatusWidget(
-                  connectionState: bluetooth.connectionState,
-                  deviceName: bluetooth.deviceName,
-                  onConnect: () => _showDeviceList(context, bluetooth),
-                  onDisconnect: bluetooth.disconnect,
+                  connectionState: scaleService.connectionState,
+                  deviceName: scaleService.useEmulator
+                      ? '${scaleService.deviceName} (Emulator)'
+                      : scaleService.deviceName,
+                  onConnect: () => _showDeviceList(context, scaleService),
+                  onDisconnect: scaleService.disconnect,
                 ),
                 const SizedBox(height: 24),
 
                 // Weight display
                 WeightDisplayWidget(
-                  currentWeight: bluetooth.currentWeight,
-                  peakWeight: bluetooth.peakWeight,
-                  unit: bluetooth.unit,
-                  onTare: bluetooth.connectionState == ConnectionState.connected
-                      ? bluetooth.tare
+                  currentWeight: scaleService.currentWeight,
+                  peakWeight: scaleService.peakWeight,
+                  unit: scaleService.unit,
+                  onTare: scaleService.connectionState == ConnectionState.connected
+                      ? scaleService.tare
                       : null,
-                  onResetPeak: bluetooth.resetPeak,
-                  onUnitChange: bluetooth.setUnit,
+                  onResetPeak: scaleService.resetPeak,
+                  onUnitChange: scaleService.setUnit,
                 ),
                 const SizedBox(height: 24),
 
@@ -75,7 +79,7 @@ class HomeScreen extends StatelessWidget {
                             ),
                             IconButton(
                               icon: const Icon(Icons.clear_all, size: 20),
-                              onPressed: bluetooth.clearHistory,
+                              onPressed: scaleService.clearHistory,
                               tooltip: 'Clear history',
                             ),
                           ],
@@ -84,15 +88,21 @@ class HomeScreen extends StatelessWidget {
                         SizedBox(
                           height: 280,
                           child: ForceChartWidget(
-                            weightHistory: bluetooth.weightHistory,
-                            unit: bluetooth.unit,
-                            connectionStartTime: bluetooth.connectionStartTime,
+                            weightHistory: scaleService.weightHistory,
+                            unit: scaleService.unit,
+                            connectionStartTime: scaleService.connectionStartTime,
                           ),
                         ),
                       ],
                     ),
                   ),
                 ),
+
+                // Emulator controls (only show when connected to emulator)
+                if (scaleService.useEmulator && scaleService.isConnected) ...[
+                  const SizedBox(height: 24),
+                  _buildEmulatorControls(context, scaleService),
+                ],
               ],
             ),
           );
@@ -101,15 +111,130 @@ class HomeScreen extends StatelessWidget {
     );
   }
 
-  void _showDeviceList(BuildContext context, OpenScaleBluetoothService bluetooth) {
-    bluetooth.startScanning();
+  Widget _buildEmulatorControls(BuildContext context, OpenScaleService scaleService) {
+    return Card(
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Text(
+              'EMULATOR CONTROLS',
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    color: Colors.orange,
+                    letterSpacing: 1.2,
+                  ),
+            ),
+            const SizedBox(height: 16),
+            // Simulation mode dropdown
+            Row(
+              children: [
+                const Text('Mode: ', style: TextStyle(color: Colors.grey)),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: DropdownButton<SimulationMode>(
+                    value: scaleService.simulationMode,
+                    isExpanded: true,
+                    dropdownColor: const Color(0xFF334155),
+                    items: const [
+                      DropdownMenuItem(
+                        value: SimulationMode.noise,
+                        child: Text('Idle (Noise Only)'),
+                      ),
+                      DropdownMenuItem(
+                        value: SimulationMode.pulls,
+                        child: Text('Climbing Pulls'),
+                      ),
+                      DropdownMenuItem(
+                        value: SimulationMode.hold,
+                        child: Text('Sustained Hold'),
+                      ),
+                      DropdownMenuItem(
+                        value: SimulationMode.ramp,
+                        child: Text('Ramp Up/Down'),
+                      ),
+                      DropdownMenuItem(
+                        value: SimulationMode.manual,
+                        child: Text('Manual Weight'),
+                      ),
+                    ],
+                    onChanged: (mode) {
+                      if (mode != null) {
+                        scaleService.setSimulationMode(mode);
+                      }
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            // Manual weight slider (only show in manual mode)
+            if (scaleService.simulationMode == SimulationMode.manual) ...[
+              Row(
+                children: [
+                  const Text('Weight: ', style: TextStyle(color: Colors.grey)),
+                  Expanded(
+                    child: Slider(
+                      value: scaleService.manualWeight,
+                      min: 0,
+                      max: 50000,
+                      divisions: 500,
+                      label: '${(scaleService.manualWeight / 1000).toStringAsFixed(1)} kg',
+                      onChanged: (value) {
+                        scaleService.setManualWeight(value);
+                      },
+                    ),
+                  ),
+                  SizedBox(
+                    width: 60,
+                    child: Text(
+                      '${(scaleService.manualWeight / 1000).toStringAsFixed(1)} kg',
+                      style: const TextStyle(color: Colors.grey),
+                    ),
+                  ),
+                ],
+              ),
+            ],
+            // Noise level slider
+            Row(
+              children: [
+                const Text('Noise: ', style: TextStyle(color: Colors.grey)),
+                Expanded(
+                  child: Slider(
+                    value: scaleService.noiseLevel,
+                    min: 0,
+                    max: 200,
+                    divisions: 20,
+                    label: '${scaleService.noiseLevel.toStringAsFixed(0)} g',
+                    onChanged: (value) {
+                      scaleService.setNoiseLevel(value);
+                    },
+                  ),
+                ),
+                SizedBox(
+                  width: 50,
+                  child: Text(
+                    '${scaleService.noiseLevel.toStringAsFixed(0)} g',
+                    style: const TextStyle(color: Colors.grey),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showDeviceList(BuildContext context, OpenScaleService scaleService) {
+    scaleService.startScanning();
 
     showModalBottomSheet(
       context: context,
       backgroundColor: const Color(0xFF1E293B),
       builder: (context) {
-        return Consumer<OpenScaleBluetoothService>(
-          builder: (context, bt, _) {
+        return Consumer<OpenScaleService>(
+          builder: (context, service, _) {
             return Container(
               padding: const EdgeInsets.all(16),
               child: Column(
@@ -126,7 +251,7 @@ class HomeScreen extends StatelessWidget {
                           fontWeight: FontWeight.bold,
                         ),
                       ),
-                      if (bt.connectionState == ConnectionState.scanning)
+                      if (service.connectionState == ConnectionState.scanning)
                         const SizedBox(
                           width: 20,
                           height: 20,
@@ -135,12 +260,27 @@ class HomeScreen extends StatelessWidget {
                       else
                         IconButton(
                           icon: const Icon(Icons.refresh),
-                          onPressed: bt.startScanning,
+                          onPressed: service.startScanning,
                         ),
                     ],
                   ),
                   const SizedBox(height: 16),
-                  if (bt.discoveredDevices.isEmpty)
+
+                  // Emulator option (always available)
+                  ListTile(
+                    leading: const Icon(Icons.computer, color: Colors.orange),
+                    title: const Text('OpenScale-EMU (Emulator)'),
+                    subtitle: const Text('Test without hardware'),
+                    trailing: const Icon(Icons.chevron_right),
+                    onTap: () {
+                      Navigator.pop(context);
+                      service.connectEmulator();
+                    },
+                  ),
+                  const Divider(),
+
+                  // Real devices
+                  if (service.discoveredDevices.isEmpty)
                     const Padding(
                       padding: EdgeInsets.all(32),
                       child: Column(
@@ -166,9 +306,9 @@ class HomeScreen extends StatelessWidget {
                   else
                     ListView.builder(
                       shrinkWrap: true,
-                      itemCount: bt.discoveredDevices.length,
+                      itemCount: service.discoveredDevices.length,
                       itemBuilder: (context, index) {
-                        final result = bt.discoveredDevices[index];
+                        final result = service.discoveredDevices[index];
                         final device = result.device;
                         return ListTile(
                           leading: const Icon(Icons.monitor_weight, color: Colors.blue),
@@ -179,7 +319,7 @@ class HomeScreen extends StatelessWidget {
                           trailing: const Icon(Icons.chevron_right),
                           onTap: () {
                             Navigator.pop(context);
-                            bt.connect(device);
+                            service.connect(device);
                           },
                         );
                       },
@@ -187,7 +327,7 @@ class HomeScreen extends StatelessWidget {
                   const SizedBox(height: 16),
                   TextButton(
                     onPressed: () {
-                      bt.stopScanning();
+                      service.stopScanning();
                       Navigator.pop(context);
                     },
                     child: const Text('Cancel'),
